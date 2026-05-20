@@ -14,3 +14,4 @@ messages:
   stat-invest-success: "&a{stat} &f+1 &7(잔여 포인트: &f{points}&7)"
   stat-toggle-success: "&a자동판매가 &f{status} &a(으)로 변경되었습니다."
   stat-toggle-not-miner: "&c광부 직업만 자동판매를 사용할 수 있습니다."
+  level-up: "&6[레벨업] &f레벨 &e{level} &f달성! &7(+{gained} 스탯 포인트)"

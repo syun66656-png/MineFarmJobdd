@@ -193,7 +193,10 @@ public final class JobCoreBootstrap {
         profileService = new PlayerProfileService(playerJobRepository);
         experienceProgression = new ExperienceProgression(config);
         jobService = new JobService(plugin, jobRegistry, profileService, config);
-        jobExperienceService = new JobExperienceService(plugin, profileService, jobRegistry);
+        jobExperienceService = new JobExperienceService(
+                plugin, profileService, jobRegistry, experienceProgression,
+                messageConfig, config.getMaxLevel(), config.getStatPointsPerLevel()
+        );
         statService = new StatService(plugin, profileService, jobRegistry, config);
         rankingService = new RankingService(plugin, databaseManager);
         guiManager = new GuiManager();
@@ -371,6 +374,7 @@ public final class JobCoreBootstrap {
             experienceProgression.applyConfig(config);
             jobService = new JobService(plugin, jobRegistry, profileService, config);
             statService = new StatService(plugin, profileService, jobRegistry, config);
+            jobExperienceService.applyConfig(config.getMaxLevel(), config.getStatPointsPerLevel());
 
             if (velocitySupport != null) {
                 velocitySupport.start(config.isVelocitySupport());

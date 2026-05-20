@@ -18,6 +18,10 @@ job-change-cooldown-days: 10
 leveling:
   # 다음 레벨 필요 경험치 = base-exp-required × 현재 레벨
   base-exp-required: 100
+  # 최대 레벨 (이 레벨 도달 후 경험치 누적 없음)
+  max-level: 100
+  # 레벨업 1회당 지급할 스탯 포인트
+  stat-points-per-level: 1
 
 # 바닐라 경험치 구슬 차단 (직업 EXP는 DB/플러그인 전용)
 experience:
