@@ -46,6 +46,10 @@ public final class JobMinerModule implements JobModule {
     private VaultEconomyBridge vaultEconomy;
     private MinerSkills minerSkills;
 
+    /** reload/disable 시 해제할 커맨드 목록 */
+    private final java.util.Map<String, org.bukkit.command.PluginCommand> registeredCommands
+            = new java.util.LinkedHashMap<>();
+
     @Override
     public String getModuleId() {
         return MODULE_ID;
@@ -125,6 +129,10 @@ public final class JobMinerModule implements JobModule {
 
     @Override
     public void onDisable() {
+        // 커맨드 먼저 해제 (reload 시 중복 등록 방지)
+        registeredCommands.values().forEach(PaperCommandRegistration::unregister);
+        registeredCommands.clear();
+
         if (minerSkills != null) {
             for (org.bukkit.entity.Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
                 minerSkills.clearForPlayer(player);
@@ -162,7 +170,7 @@ public final class JobMinerModule implements JobModule {
     }
 
 
-    private static void registerCommand(
+    private void registerCommand(
             JavaPlugin plugin,
             String name,
             String description,
@@ -170,7 +178,11 @@ public final class JobMinerModule implements JobModule {
             org.bukkit.command.TabCompleter tabCompleter,
             String permission
     ) {
-        PaperCommandRegistration.register(plugin, name, description, executor, tabCompleter, permission);
+        org.bukkit.command.PluginCommand cmd =
+                PaperCommandRegistration.register(plugin, name, description, executor, tabCompleter, permission);
+        if (cmd != null) {
+            registeredCommands.put(name, cmd);
+        }
     }
 
     public JobMinerConfig getMinerConfig() {

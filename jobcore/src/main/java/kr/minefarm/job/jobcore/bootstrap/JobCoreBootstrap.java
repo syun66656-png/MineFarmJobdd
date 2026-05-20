@@ -77,6 +77,10 @@ public final class JobCoreBootstrap {
     private VelocitySupport velocitySupport;
     private boolean modulesLoaded;
 
+    /** reload 시 unregister 를 위해 보관하는 커맨드 목록 */
+    private final java.util.Map<String, org.bukkit.command.PluginCommand> registeredCommands
+            = new java.util.LinkedHashMap<>();
+
     public JobCoreBootstrap(JavaPlugin plugin) {
         this.plugin = plugin;
     }
@@ -148,6 +152,7 @@ public final class JobCoreBootstrap {
             moduleLoader.disableAll();
             modulesLoaded = false;
         }
+        unregisterCommands();
         shutdownIntegrations();
         if (rankingService != null) {
             rankingService.shutdown();
@@ -257,39 +262,39 @@ public final class JobCoreBootstrap {
     }
 
     private void registerCommands() {
-        PaperCommandRegistration.register(
-                plugin,
-                "직업",
-                "직업 선택 및 개인 정보 GUI",
-                new JobCommand(jobGuiService, messageConfig)
-        );
+        // reload 시 기존 커맨드 먼저 해제하여 중복 등록 방지
+        unregisterCommands();
+
+        registerAndTrack("직업", "직업 선택 및 개인 정보 GUI",
+                new JobCommand(jobGuiService, messageConfig), null, null);
 
         JobAdminCommand adminCommands = new JobAdminCommand(jobGuiService, messageConfig, this);
-        PaperCommandRegistration.register(
-                plugin,
-                "직업설정",
-                "관리자 유저 데이터 관리 GUI",
-                adminCommands,
-                null,
-                "minefarmjob.admin"
-        );
-        PaperCommandRegistration.register(
-                plugin,
-                "직업리로드",
-                "JobCore·직업 모듈 설정 리로드",
-                adminCommands,
-                adminCommands,
-                "minefarmjob.admin"
-        );
-
-        PaperCommandRegistration.register(
-                plugin,
-                "스탯",
-                "스탯 포인트 투자 및 광부 자동판매 토글",
-                new StatCommand(jobGuiService, messageConfig)
-        );
+        registerAndTrack("직업설정", "관리자 유저 데이터 관리 GUI",
+                adminCommands, null, "minefarmjob.admin");
+        registerAndTrack("직업리로드", "JobCore·직업 모듈 설정 리로드",
+                adminCommands, adminCommands, "minefarmjob.admin");
+        registerAndTrack("스탯", "스탯 포인트 투자 및 광부 자동판매 토글",
+                new StatCommand(jobGuiService, messageConfig), null, null);
 
         plugin.getLogger().info("[JobCore] Commands registered (Paper registerCommand).");
+    }
+
+    private void registerAndTrack(
+            String name, String description,
+            org.bukkit.command.CommandExecutor executor,
+            org.bukkit.command.TabCompleter tab,
+            String permission
+    ) {
+        org.bukkit.command.PluginCommand cmd =
+                PaperCommandRegistration.register(plugin, name, description, executor, tab, permission);
+        if (cmd != null) {
+            registeredCommands.put(name, cmd);
+        }
+    }
+
+    private void unregisterCommands() {
+        registeredCommands.values().forEach(PaperCommandRegistration::unregister);
+        registeredCommands.clear();
     }
 
     private void startBackgroundTasks() {
