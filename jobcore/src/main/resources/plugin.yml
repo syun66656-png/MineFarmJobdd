@@ -1,0 +1,13 @@
+name: JobCore
+version: ${project.version}
+main: kr.minefarm.job.jobcore.JobCorePlugin
+api-version: '1.21'
+description: MineFarm 직업 프레임워크 (DB, GUI, 스탯, 랭킹)
+authors: [MineFarm]
+softdepend: [PlaceholderAPI]
+
+# 명령어는 Paper registerCommand 로 등록 (JobCoreBootstrap.registerCommands)
+permissions:
+  minefarmjob.admin:
+    description: 직업 관리자 명령어
+    default: op

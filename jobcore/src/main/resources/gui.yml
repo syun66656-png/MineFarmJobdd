@@ -1,0 +1,139 @@
+# GUI 제목·아이템 (색코드 & 지원)
+# 플레이스홀더: {player}, {job}, {job_key}, {level}, {exp}, {exp_max}, {exp_remaining}, {exp_percent}, {exp_bar}, {rank}, {stat_points}
+# PAPI 설치 시 문자열 전체에 PlaceholderAPI 파싱 추가 적용
+
+job-select:
+  title: "&6직업 선택"
+  size: 27
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    name: " "
+  jobs:
+    miner:
+      slot: 11
+      material: IRON_PICKAXE
+      name: "&e광부"
+      lore:
+        - "&7클릭하여 광부 직업을 선택합니다."
+    farmer:
+      slot: 13
+      material: WHEAT
+      name: "&a농부"
+      lore:
+        - "&7준비 중"
+    hunter:
+      slot: 15
+      material: BOW
+      name: "&c헌터"
+      lore:
+        - "&7준비 중"
+
+job-info:
+  title: "&6직업 정보 센터"
+  size: 27
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    name: " "
+  items:
+    current-job:
+      slot: 11
+      material: PLAYER_HEAD
+      name: "&e현재 직업: &f{job}"
+      lore:
+        - "&7직업 ID: &f{job_key}"
+        - "&7레벨: &f{level}"
+        - "&7스탯 포인트: &f{stat_points}"
+    experience:
+      slot: 13
+      material: EXPERIENCE_BOTTLE
+      name: "&a경험치"
+      lore:
+        - "&7{exp} &8/ &f{exp_max}"
+        - "{exp_bar}"
+        - "&7다음 레벨까지: &f{exp_remaining}"
+    ranking:
+      slot: 15
+      material: GOLD_INGOT
+      name: "&6내 랭킹"
+      lore:
+        - "&7{job} 직업 순위: &f#{rank}"
+        - "&7레벨 &f{level} &8| &7EXP &f{exp}"
+        - "&7%jobcore_rank% &8(PAPI)"
+
+stat-gui:
+  title: "&6스탯 투자"
+  size: 36
+  filler:
+    material: GRAY_STAINED_GLASS_PANE
+    name: " "
+  header:
+    slot: 4
+    material: NETHER_STAR
+    name: "&e잔여 스탯 포인트: &f{stat_points}"
+    lore:
+      - "&7최대 스탯 레벨: &f{stat_max_level}"
+  stats:
+    relic:
+      slot: 10
+      material: AMETHYST_SHARD
+      name: "&d유물 &8[&fLv.{stat_relic}&8]"
+      lore:
+        - "&7클릭 시 1포인트 투자"
+        - "&7현재 &f{stat_relic}&7/&f{stat_max_level}"
+    skill:
+      slot: 12
+      material: ENCHANTED_BOOK
+      name: "&b스킬 &8[&fLv.{stat_skill}&8]"
+      lore:
+        - "&7클릭 시 1포인트 투자"
+        - "&7현재 &f{stat_skill}&7/&f{stat_max_level}"
+    sell:
+      slot: 14
+      material: GOLD_INGOT
+      name: "&6판매 &8[&fLv.{stat_sell}&8]"
+      lore:
+        - "&7클릭 시 1포인트 투자"
+        - "&7현재 &f{stat_sell}&7/&f{stat_max_level}"
+    auto_sell:
+      slot: 16
+      material: HOPPER
+      name: "&e자동판매 확률 &8[&fLv.{stat_auto_sell}&8]"
+      lore:
+        - "&7클릭 시 1포인트 투자"
+        - "&7현재 &f{stat_auto_sell}&7/&f{stat_max_level}"
+        - "&7(광부 자동판매 발동 확률)"
+  auto-sell-toggle:
+    slot: 31
+    material: LIME_DYE
+    name: "&a자동판매: {auto_sell_status}"
+    lore:
+      - "&7광부 전용 — 클릭하여 On/Off"
+      - "&7상태: &f{auto_sell_status}"
+
+admin-player:
+  title: "&c관리: {target}"
+  size: 36
+  filler:
+    material: BLACK_STAINED_GLASS_PANE
+    name: " "
+  items:
+    profile-summary:
+      slot: 13
+      material: BOOK
+      name: "&e{target} &7데이터"
+      lore:
+        - "&7직업: &f{job}"
+        - "&7레벨: &f{level}"
+        - "&7경험치: &f{exp}"
+    change-job:
+      slot: 20
+      material: ANVIL
+      name: "&6직업 변경"
+      lore:
+        - "&7클릭 시 직업 선택 GUI (관리)"
+    reset-data:
+      slot: 24
+      material: BARRIER
+      name: "&c데이터 초기화"
+      lore:
+        - "&7준비 중 — 추후 구현"

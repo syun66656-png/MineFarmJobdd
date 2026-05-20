@@ -1,0 +1,21 @@
+---
+description: StarterKit·광부 패시브(PDC)·JobService 직업 전환 흐름 (MineFarmJob)
+globs: "**/jobminer/**/*.java,**/jobcore/**/JobService.java"
+alwaysApply: false
+---
+
+# StarterKitService
+
+- 템플릿 `List<ItemStack>`은 **읽기 전용**으로 두고, 지급 시마다 **`item.clone()`** 으로만 복제한다. 원본 템플릿이 변형되면 안 된다.
+- **`PlayerInventory#addItem`** 의 반환값 **`Map<Integer, ItemStack>`** 을 사용한다. 맵이 **비어 있으면** 드롭하지 않고, **남은 스택이 있을 때만** `dropItemNaturally` 로 바닥에 떨군다.
+- 호출부는 DB 비동기 로드 후 **메인 스레드(`runTask`)** 에서 `equipStarterKit` 을 호출한다.
+
+# MinerPassiveEffectsService
+
+- `NamespacedKey` + PDC로 “내가 건 Speed”만 식별한다. 타입은 **`PersistentDataType.BYTE`** 를 쓴다.
+- **`clear`**: `removePotionEffect` 만 하지 말고, **반드시 PDC 키도 `remove`** 해야 다음 `apply` 에서 로직이 꼬이지 않는다.
+
+# JobService / MinerJob
+
+- 직업 변경 시 **`onDeselect` → (프로필 갱신) → `onSelect`** 순서를 **반드시** 지킨다. 패시브 중첩 방지에 결정적이다.
+- `onDeselect` 에서 예외가 나도 **`onSelect` 와 프로필 반영이 진행**되도록 **`try` / `finally`** (또는 `onDeselect` 내부 `try-catch` + `finally` 에서 직업 반영)를 고려한다. 구현 시 `JobService#applyJobChangeOnMainThread` 패턴을 따른다.

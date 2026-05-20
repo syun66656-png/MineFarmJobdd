@@ -1,0 +1,35 @@
+# JobCore 공통 설정
+
+# true: Velocity 프록시용 Plugin Messaging 채널 등록 (minefarm:jobcore)
+# false: 일반 Paper/Spigot 단독 서버 — 채널·프록시 로직 미사용
+velocity-support: false
+
+database:
+  host: localhost
+  port: 3306
+  database: minefarm_job
+  username: root
+  password: ""
+  pool-size: 10
+  connection-timeout-ms: 30000
+
+job-change-cooldown-days: 10
+
+leveling:
+  # 다음 레벨 필요 경험치 = base-exp-required × 현재 레벨
+  base-exp-required: 100
+
+# 바닐라 경험치 구슬 차단 (직업 EXP는 DB/플러그인 전용)
+experience:
+  block-vanilla-orbs: true
+
+stats:
+  max-level: 25
+
+ranking:
+  # 매시 :00, :30 비동기 DB 갱신 (RankingService)
+  enabled: true
+
+async-save:
+  flush-interval-ticks: 100
+  shutdown-timeout-seconds: 30

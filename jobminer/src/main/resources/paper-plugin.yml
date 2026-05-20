@@ -1,0 +1,14 @@
+name: JobMiner
+version: ${project.version}
+main: kr.minefarm.job.jobminer.JobMinerPlugin
+description: MineFarm 광부 직업 모듈
+api-version: '1.21'
+authors: [MineFarm]
+
+dependencies:
+  server:
+    JobCore:
+      # JobCore 가 먼저 onEnable 되어야 JobMiner 가 등록·join-classpath 를 쓸 수 있음 (AFTER 는 역순)
+      load: BEFORE
+      required: true
+      join-classpath: true

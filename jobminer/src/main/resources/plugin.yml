@@ -1,0 +1,20 @@
+name: JobMiner
+version: '${project.version}'
+main: kr.minefarm.job.jobminer.JobMinerPlugin
+api-version: '1.21'
+description: MineFarm 광부 직업 모듈
+authors: [MineFarm]
+
+# 'depend'를 삭제하고 아래 'dependencies' 블록을 추가하세요.
+dependencies:
+  bootstrap:
+    JobCore:
+      required: true
+      load: BEFORE
+
+softdepend: [Vault]
+
+permissions:
+  minefarmjob.admin:
+    description: 직업 관리자 명령어
+    default: op

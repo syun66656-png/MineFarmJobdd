@@ -1,0 +1,105 @@
+# JobMiner 전용 설정 (JobCore와 분리)
+
+# 광부 다이너마이트: 우클릭 시 TNT 소환 → fuse-ticks 후 폭발 (지형 파괴 없음, 리젠 광석만 보상)
+dynamite:
+  enabled: true
+  material: FIRE_CHARGE
+  # 비우면 표시 이름 검사 생략 (material만 일치하면 됨)
+  name-keyword: ""
+  fuse-ticks: 50
+  consume-item: true
+  cooldown-ticks: 100
+
+# 오버클럭: 설정 아이템 우클릭 시 Haste, 액션바로 남은 시간 표시
+overclock:
+  enabled: true
+  material: CLOCK
+  name-keyword: ""
+  cooldown-ticks: 600
+  duration-ticks: 200
+  min-job-level: 1
+  max-job-level: 999
+  haste-amplifier: 1
+  cooldown-message: "&c[광부] &f쿨타임 중입니다."
+  level-denied-message: "&c[광부] &f직업 레벨이 맞지 않아 오버클럭을 사용할 수 없습니다."
+
+# 광부 직업 선택 시 인벤토리에 지급 (직업 변경할 때마다 지급됨 — 1회만 주려면 추후 플래그 추가)
+starter-kit:
+  items:
+    - material: IRON_PICKAXE
+      amount: 1
+      name: "&6광부 곡괭이"
+      lore:
+        - "&7리젠 광산 채굴용"
+      enchantments:
+        efficiency: 2
+        unbreaking: 2
+
+# 접속·직업 선택·스탯 투자 후 DB 프로필 반영 시 적용 (메인 스레드)
+miner-passives:
+  light-footsteps:
+    enabled: true
+    # amplifier = min(cap, base-amplifier + SKILL스탯×per-skill-level + 직업레벨×per-job-level), 0=이속 I
+    base-amplifier: 0
+    per-skill-level: 1
+    per-job-level: 0
+    amplifier-cap: 3
+
+allowed_pickaxe_keywords:
+  - "광부 곡괭이"
+  - "Miner Pickaxe"
+
+regen:
+  delay-seconds: 30
+
+regen-wand:
+  material: GOLDEN_AXE
+  display-name: "&6광산 관리 완드"
+  lore:
+    - "&7좌클릭: 리젠 블록 등록"
+    - "&7우클릭: 리젠 블록 해제"
+
+autosell:
+  notify-player: true
+  # 확률 = min(max-chance, base-chance + chance-per-level × 자동판매 스탯 레벨)
+  base-chance: 0.05
+  chance-per-level: 0.02
+  max-chance: 0.80
+  message: "&a[자동판매] &f{summary} &8→ &6+{total_price}골드"
+
+sell:
+  # total_price = base + (base × bonus-multiplier × sell 스탯 레벨)
+  bonus-multiplier: 0.05
+
+# Material 이름: 기본 단가 (1개당)
+shop-prices:
+  COAL: 8
+  RAW_IRON: 15
+  IRON_ORE: 12
+  RAW_GOLD: 25
+  GOLD_ORE: 20
+  DIAMOND: 120
+  EMERALD: 80
+  LAPIS_LAZULI: 6
+  REDSTONE: 4
+  COPPER_ORE: 10
+  DEEPSLATE_COAL_ORE: 10
+  DEEPSLATE_IRON_ORE: 14
+  DEEPSLATE_GOLD_ORE: 22
+  DEEPSLATE_DIAMOND_ORE: 130
+  DEEPSLATE_REDSTONE_ORE: 5
+  DEEPSLATE_LAPIS_ORE: 7
+  DEEPSLATE_COPPER_ORE: 11
+
+# 리젠 광산 채굴 시 100% 추가 지급 (Material: amount)
+guaranteed-drops:
+  RAW_IRON: 1
+
+# 확률 드롭 (Material → chance 0.0~1.0, amount)
+special-drops:
+  DIAMOND:
+    chance: 0.02
+    amount: 1
+  EMERALD:
+    chance: 0.01
+    amount: 1
