@@ -153,6 +153,13 @@ public final class JobCoreBootstrap {
             modulesLoaded = false;
         }
         unregisterCommands();
+        // 리스너 해제
+        if (guiListener != null) {
+            HandlerList.unregisterAll(guiListener);
+        }
+        if (experienceListener != null) {
+            HandlerList.unregisterAll(experienceListener);
+        }
         shutdownIntegrations();
         if (rankingService != null) {
             rankingService.shutdown();
@@ -165,7 +172,7 @@ public final class JobCoreBootstrap {
         }
 
         state = JobCoreState.SHUTDOWN;
-        plugin.getLogger().info("JobCore shut down.");
+        plugin.getLogger().info("[JobCore] JobCore shut down.");
     }
 
     private void loadConfiguration() {
@@ -198,7 +205,7 @@ public final class JobCoreBootstrap {
                 messageConfig, config.getMaxLevel(), config.getStatPointsPerLevel()
         );
         statService = new StatService(plugin, profileService, jobRegistry, config);
-        rankingService = new RankingService(plugin, databaseManager);
+        rankingService = new RankingService(plugin, databaseManager, config.getRankingTopN());
         guiManager = new GuiManager();
         coreApi = new JobCoreAPIImpl(
                 databaseManager,

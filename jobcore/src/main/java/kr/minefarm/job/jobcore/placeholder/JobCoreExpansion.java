@@ -19,7 +19,10 @@ import java.util.Locale;
  * <p>
  * %jobcore_job%, %jobcore_job_key%, %jobcore_level%, %jobcore_exp%,
  * %jobcore_stat_relic%, %jobcore_stat_skill%, %jobcore_stat_sell%, %jobcore_stat_auto_sell%,
- * %jobcore_auto_sell_enabled%
+ * %jobcore_auto_sell_enabled%, %jobcore_rank%
+ * <p>
+ * 캐시 미스 시 비동기 로드를 fire-and-forget 으로 트리거하고 즉시 기본값을 반환한다.
+ * 로드 완료 후 다음 PAPI 요청부터는 캐시에서 응답된다.
  */
 public final class JobCoreExpansion extends PlaceholderExpansion {
 
@@ -43,38 +46,22 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
         this.rankingService = rankingService;
     }
 
-    @Override
-    public @NotNull String getIdentifier() {
-        return "jobcore";
-    }
-
-    @Override
-    public @NotNull String getAuthor() {
-        return "MineFarm";
-    }
-
-    @Override
-    public @NotNull String getVersion() {
-        return version;
-    }
-
-    @Override
-    public boolean persist() {
-        return true;
-    }
+    @Override public @NotNull String getIdentifier() { return "jobcore"; }
+    @Override public @NotNull String getAuthor() { return "MineFarm"; }
+    @Override public @NotNull String getVersion() { return version; }
+    @Override public boolean persist() { return true; }
 
     @Override
     public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
-        if (player == null) {
-            return "";
-        }
+        if (player == null) return "";
 
         PlayerJobProfile profile = profileService.getCached(player.getUniqueId());
-        if (profile == null && player.isOnline() && player.getPlayer() != null) {
-            profileService.loadOrCreate(player.getPlayer());
-            profile = profileService.getCached(player.getUniqueId());
-        }
         if (profile == null) {
+            // 캐시 미스: 비동기 warm-up 트리거 후 즉시 기본값 반환
+            // 로드 완료 후 다음 요청부터 정상 응답됨
+            if (player.isOnline() && player.getPlayer() != null) {
+                profileService.loadOrCreate(player.getPlayer()); // fire-and-forget
+            }
             return defaultForUnknown(params);
         }
 
@@ -100,9 +87,7 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
     }
 
     private String resolveStatPlaceholder(String params, PlayerJobProfile profile) {
-        if (!params.startsWith("stat_")) {
-            return null;
-        }
+        if (!params.startsWith("stat_")) return null;
         String statKey = params.substring("stat_".length());
         return StatType.fromKey(statKey)
                 .map(type -> String.valueOf(profile.getStatLevel(type)))

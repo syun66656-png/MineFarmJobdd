@@ -14,6 +14,7 @@ public final class JobCoreConfig {
     private final boolean blockVanillaExpOrbs;
     private final int maxStatLevel;
     private final boolean velocitySupport;
+    private final int rankingTopN;
 
     public JobCoreConfig(FileConfiguration config) {
         this.database = new DatabaseSettings(
@@ -34,6 +35,7 @@ public final class JobCoreConfig {
         this.blockVanillaExpOrbs = config.getBoolean("experience.block-vanilla-orbs", true);
         this.maxStatLevel = config.getInt("stats.max-level", 25);
         this.velocitySupport = config.getBoolean("velocity-support", false);
+        this.rankingTopN = config.getInt("ranking.top-n", 100);
     }
 
     public DatabaseSettings getDatabase() { return database; }
@@ -46,4 +48,5 @@ public final class JobCoreConfig {
     public boolean isBlockVanillaExpOrbs() { return blockVanillaExpOrbs; }
     public int getMaxStatLevel() { return maxStatLevel; }
     public boolean isVelocitySupport() { return velocitySupport; }
+    public int getRankingTopN() { return rankingTopN; }
 }

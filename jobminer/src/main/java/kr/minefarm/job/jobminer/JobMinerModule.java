@@ -45,6 +45,10 @@ public final class JobMinerModule implements JobModule {
     private RegenRestoreService regenRestoreService;
     private VaultEconomyBridge vaultEconomy;
     private MinerSkills minerSkills;
+    private JavaPlugin hostPlugin; // onEnable에서 캡처
+
+    /** 5초마다 dirty 확인 후 비동기 저장 */
+    private org.bukkit.scheduler.BukkitTask saveTask;
 
     /** reload/disable 시 해제할 커맨드 목록 */
     private final java.util.Map<String, org.bukkit.command.PluginCommand> registeredCommands
@@ -66,17 +70,23 @@ public final class JobMinerModule implements JobModule {
     @Override
     public void onEnable(JobContext context) {
         JavaPlugin plugin = context.getPlugin();
+        this.hostPlugin = plugin;
         plugin.saveResource("jobminer/config.yml", false);
         minerConfig = new JobMinerConfig(plugin);
 
-        StarterKitService starterKitService = new StarterKitService(minerConfig);
+        StarterKitService starterKitService = new StarterKitService(minerConfig, plugin.getLogger());
         MinerPassiveEffectsService passiveEffectsService = new MinerPassiveEffectsService(plugin, minerConfig);
 
         regenBlockStorage = new RegenBlockStorage(plugin);
         regenBlockRegistry = new RegenBlockRegistry();
         regenBlockRegistry.loadAll(regenBlockStorage.load());
-        regenBlockRegistry.setOnChanged(() ->
-                regenBlockStorage.save(regenBlockRegistry.getAllEntries()));
+        // 5초마다 dirty 확인 후 비동기 저장 (매 등록/해제마다 동기 I/O 하던 방식 개선)
+        saveTask = plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            if (regenBlockRegistry.isDirty()) {
+                regenBlockStorage.save(regenBlockRegistry.getAllEntries());
+                regenBlockRegistry.clearDirty();
+            }
+        }, 100L, 100L); // 5초(100틱) 주기
         restoreBrokenBlocksOnLoad();
 
         regenRestoreService = new RegenRestoreService(plugin, minerConfig, regenBlockRegistry);
@@ -133,6 +143,12 @@ public final class JobMinerModule implements JobModule {
         registeredCommands.values().forEach(PaperCommandRegistration::unregister);
         registeredCommands.clear();
 
+        // 저장 태스크 중단 후 최종 flush
+        if (saveTask != null) {
+            saveTask.cancel();
+            saveTask = null;
+        }
+
         if (minerSkills != null) {
             for (org.bukkit.entity.Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
                 minerSkills.clearForPlayer(player);
@@ -157,15 +173,43 @@ public final class JobMinerModule implements JobModule {
     }
 
     private void restoreBrokenBlocksOnLoad() {
+        java.util.List<RegenBlockEntry> deferred = new java.util.ArrayList<>();
+
         for (RegenBlockEntry entry : regenBlockRegistry.getAllEntries()) {
             Block block = entry.resolveBlock();
             if (block == null) {
+                // 월드가 아직 로드되지 않음 — WorldLoadEvent에서 재시도
+                deferred.add(entry);
                 continue;
             }
             Material type = block.getType();
             if (type == Material.AIR || type == Material.CAVE_AIR || type == Material.VOID_AIR) {
                 entry.applyTo(block);
             }
+        }
+
+        if (!deferred.isEmpty() && hostPlugin != null) {
+            // WorldLoadEvent 리스너로 미복구 블록 재시도
+            org.bukkit.event.Listener worldLoadListener = new org.bukkit.event.Listener() {
+                @org.bukkit.event.EventHandler
+                public void onWorldLoad(org.bukkit.event.world.WorldLoadEvent event) {
+                    java.util.Iterator<RegenBlockEntry> it = deferred.iterator();
+                    while (it.hasNext()) {
+                        RegenBlockEntry e = it.next();
+                        Block b = e.resolveBlock();
+                        if (b == null) continue;
+                        Material t = b.getType();
+                        if (t == Material.AIR || t == Material.CAVE_AIR || t == Material.VOID_AIR) {
+                            e.applyTo(b);
+                        }
+                        it.remove();
+                    }
+                    if (deferred.isEmpty()) {
+                        org.bukkit.event.HandlerList.unregisterAll(this);
+                    }
+                }
+            };
+            hostPlugin.getServer().getPluginManager().registerEvents(worldLoadListener, hostPlugin);
         }
     }
 

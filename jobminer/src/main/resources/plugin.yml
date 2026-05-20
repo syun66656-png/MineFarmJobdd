@@ -4,14 +4,8 @@ main: kr.minefarm.job.jobminer.JobMinerPlugin
 api-version: '1.21'
 description: MineFarm 광부 직업 모듈
 authors: [MineFarm]
-
-# 'depend'를 삭제하고 아래 'dependencies' 블록을 추가하세요.
-dependencies:
-  bootstrap:
-    JobCore:
-      required: true
-      load: BEFORE
-
+# paper-plugin.yml이 Paper에서 우선됨. 표준 plugin.yml은 Spigot 호환용.
+depend: [JobCore]
 softdepend: [Vault]
 
 permissions:

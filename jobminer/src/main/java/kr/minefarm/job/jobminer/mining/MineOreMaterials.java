@@ -7,20 +7,14 @@ import org.bukkit.Material;
  */
 public final class MineOreMaterials {
 
-    private MineOreMaterials() {
-    }
+    private MineOreMaterials() {}
 
     public static boolean isOre(Material material) {
-        if (material == null || material.isAir()) {
-            return false;
-        }
+        if (material == null || material.isAir()) return false;
         String name = material.name();
-        if (name.endsWith("_ORE")) {
-            return true;
-        }
-        if (name.contains("_ORE")) {
-            return true;
-        }
+        // _ORE 로 끝나는 모든 바닐라 광석 (COAL_ORE, DEEPSLATE_IRON_ORE 등)
+        if (name.endsWith("_ORE")) return true;
+        // 별도 처리 필요한 광물
         return material == Material.ANCIENT_DEBRIS
                 || material == Material.NETHER_GOLD_ORE
                 || material == Material.GILDED_BLACKSTONE;

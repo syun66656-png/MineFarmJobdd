@@ -47,10 +47,16 @@ public final class StarterKitService {
         ENCHANT_ALIASES = Map.copyOf(m);
     }
 
-    private final List<ItemStack> templates;
+    private final java.util.logging.Logger logger;
 
+    public StarterKitService(JobMinerConfig minerConfig, java.util.logging.Logger logger) {
+        this.logger = logger;
+        this.templates = parseTemplates(minerConfig, logger);
+    }
+
+    /** 하위 호환 생성자 (logger 없이 사용 시 기본 logger 사용) */
     public StarterKitService(JobMinerConfig minerConfig) {
-        this.templates = parseTemplates(minerConfig);
+        this(minerConfig, java.util.logging.Logger.getLogger("JobMiner"));
     }
 
     /**
@@ -80,26 +86,20 @@ public final class StarterKitService {
         }
     }
 
-    private static List<ItemStack> parseTemplates(JobMinerConfig minerConfig) {
+    private static List<ItemStack> parseTemplates(JobMinerConfig minerConfig, java.util.logging.Logger logger) {
         List<ItemStack> out = new ArrayList<>();
         ConfigurationSection root = minerConfig.getStarterKitSection();
-        if (root == null) {
-            return out;
-        }
+        if (root == null) return out;
         List<Map<?, ?>> rows = root.getMapList("items");
-        if (rows == null || rows.isEmpty()) {
-            return out;
-        }
+        if (rows == null || rows.isEmpty()) return out;
         for (Map<?, ?> row : rows) {
-            ItemStack stack = parseItemRow(row);
-            if (stack != null) {
-                out.add(stack);
-            }
+            ItemStack stack = parseItemRow(row, logger);
+            if (stack != null) out.add(stack);
         }
         return out;
     }
 
-    private static ItemStack parseItemRow(Map<?, ?> row) {
+    private static ItemStack parseItemRow(Map<?, ?> row, java.util.logging.Logger logger) {
         Object matObj = row.get("material");
         if (matObj == null) {
             return null;
@@ -159,7 +159,10 @@ public final class StarterKitService {
                         level = 1;
                     }
                 }
-                resolveEnchantment(key).ifPresent(ench -> meta.addEnchant(ench, level, true));
+                resolveEnchantment(key).ifPresentOrElse(
+                        ench -> meta.addEnchant(ench, level, true),
+                        () -> logger.warning("[JobMiner] 스타터킷: 알 수 없는 인챈트 키 '" + key + "' — 무시됨")
+                );
             }
         }
 

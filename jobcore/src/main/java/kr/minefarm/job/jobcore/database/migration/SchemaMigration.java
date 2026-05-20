@@ -31,6 +31,12 @@ public final class SchemaMigration {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """;
 
+    /** 랭킹 쿼리 성능을 위한 복합 인덱스 */
+    private static final String CREATE_RANKING_INDEX = """
+            CREATE INDEX IF NOT EXISTS idx_job_ranking
+            ON job_player_profiles (job_id, level DESC, experience DESC);
+            """;
+
     private static final String[][] LEGACY_COLUMNS = {
             {"stat_relic", "INT NOT NULL DEFAULT 0"},
             {"stat_skill", "INT NOT NULL DEFAULT 0"},
@@ -53,6 +59,13 @@ public final class SchemaMigration {
             statement.execute(CREATE_PLAYER_PROFILES);
             for (String[] column : LEGACY_COLUMNS) {
                 addColumnIfMissing(connection, column[0], column[1]);
+            }
+            // 랭킹 쿼리 성능 인덱스 (MariaDB 10.1.4+ 지원)
+            try {
+                statement.execute(CREATE_RANKING_INDEX);
+            } catch (Exception exception) {
+                // 인덱스 생성 실패는 치명적이지 않음 (권한 부족 등)
+                logger.warning("[JobCore] 랭킹 인덱스 생성 실패 (무시): " + exception.getMessage());
             }
         }
     }

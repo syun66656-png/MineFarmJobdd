@@ -10,6 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 채굴 후 지연 복구 및 관리자 즉시 초기화.
+ * <p>
+ * {@code runTaskLater} 완료 후 pendingTaskIds 에서 자동 제거하여 맵 누수를 방지한다.
  */
 public final class RegenRestoreService {
 
@@ -29,22 +31,20 @@ public final class RegenRestoreService {
     }
 
     public void scheduleRestore(Block block, RegenBlockEntry entry) {
-        if (entry == null) {
-            return;
-        }
+        if (entry == null) return;
         RegenBlockEntry.BlockKey key = entry.key();
         cancelPending(key);
 
         long delayTicks = config.getRegenDelaySeconds() * 20L;
-        int taskId = plugin.getServer().getScheduler().runTaskLater(plugin, () -> restoreEntry(entry), delayTicks)
-                .getTaskId();
+        int taskId = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            restoreEntry(entry);
+            pendingTaskIds.remove(key); // 자연 완료 후 맵에서 제거하여 누수 방지
+        }, delayTicks).getTaskId();
         pendingTaskIds.put(key, taskId);
     }
 
     public boolean resetNow(RegenBlockEntry entry) {
-        if (entry == null) {
-            return false;
-        }
+        if (entry == null) return false;
         cancelPending(entry.key());
         return restoreEntry(entry);
     }
@@ -52,26 +52,20 @@ public final class RegenRestoreService {
     public int resetAll() {
         int count = 0;
         for (RegenBlockEntry entry : regenBlockRegistry.getAllEntries()) {
-            if (resetNow(entry)) {
-                count++;
-            }
+            if (resetNow(entry)) count++;
         }
         return count;
     }
 
     private boolean restoreEntry(RegenBlockEntry entry) {
         Block block = entry.resolveBlock();
-        if (block == null) {
-            return false;
-        }
+        if (block == null) return false;
         Material current = block.getType();
         if (current == Material.AIR || current == Material.CAVE_AIR || current == Material.VOID_AIR) {
             entry.applyTo(block);
             return true;
         }
-        if (block.getBlockData().matches(entry.createBlockData())) {
-            return true;
-        }
+        if (block.getBlockData().matches(entry.createBlockData())) return true;
         entry.applyTo(block);
         return true;
     }

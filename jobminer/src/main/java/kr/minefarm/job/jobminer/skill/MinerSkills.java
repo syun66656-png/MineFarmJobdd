@@ -259,6 +259,8 @@ public final class MinerSkills implements Listener {
         if (activeEnd != null && now < activeEnd) {
             long newEnd = now + config.getOverclockDurationTicks() * MS_PER_TICK;
             overclockActiveUntilMs.put(id, newEnd);
+            // 기존 Haste를 먼저 제거한 뒤 재부여하여 duration이 올바르게 적용되도록
+            clearOverclockHaste(player);
             applyOverclockHaste(player);
             event.setCancelled(true);
             return true;

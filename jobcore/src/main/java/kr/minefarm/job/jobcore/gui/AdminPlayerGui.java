@@ -90,6 +90,10 @@ public final class AdminPlayerGui extends AbstractJobGui {
                 guiService.openJobSelectForTarget(admin, targetUuid, targetName);
             }
         });
-        // reset-data: 추후 AdminService 연동
+        guiConfig.getItem("admin-player", ITEM_RESET).ifPresent(template -> {
+            if (event.getSlot() == template.slot()) {
+                player.sendMessage(messages.get("admin-reset-not-implemented"));
+            }
+        });
     }
 }

@@ -35,10 +35,10 @@ public final class RankingService {
     private volatile Instant lastRefreshedAt;
     private BukkitTask scheduledTask;
 
-    public RankingService(JavaPlugin plugin, DatabaseManager databaseManager) {
+    public RankingService(JavaPlugin plugin, DatabaseManager databaseManager, int topN) {
         this.plugin = plugin;
         this.databaseManager = databaseManager;
-        this.loader = new RankingLeaderboardLoader();
+        this.loader = new RankingLeaderboardLoader(topN);
     }
 
     /**
