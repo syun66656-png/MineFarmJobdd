@@ -49,6 +49,13 @@ public final class HikariDatabaseManager implements DatabaseManager {
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        // 운영 안정성 옵션
+        config.addDataSourceProperty("useServerPrepStmts", "true");
+        config.addDataSourceProperty("socketTimeout", "30000");
+        config.addDataSourceProperty("tcpKeepAlive", "true");
+        config.addDataSourceProperty("characterEncoding", "utf8");
+        config.addDataSourceProperty("useUnicode", "true");
+        config.addDataSourceProperty("serverTimezone", "UTC");
 
         dataSource = new HikariDataSource(config);
 

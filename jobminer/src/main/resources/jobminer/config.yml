@@ -103,3 +103,15 @@ special-drops:
   EMERALD:
     chance: 0.01
     amount: 1
+
+# 광부 상점 GUI (/광부상점 명령어)
+shop-gui:
+  title: "&6&l광부 상점 &8— &e{page}&8/&f{total_pages}"
+  size: 54
+  # 판매 시 확인 메시지 출력 여부
+  notify-on-sell: true
+  sell-message: "&a[상점] &f{item} &7{amount}개 판매 → &6+{price}골드"
+  sell-all-message: "&a[상점] &f총 {count}종 판매 → &6+{total}골드"
+  # 아이템 없을 때 메시지
+  no-items-message: "&c인벤토리에 판매 가능한 광석이 없습니다."
+  vault-error-message: "&c입금 오류가 발생했습니다. 관리자에게 문의하세요."

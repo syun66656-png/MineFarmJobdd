@@ -22,6 +22,8 @@ import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.mining.RegenBlockStorage;
 import kr.minefarm.job.jobminer.mining.RegenRestoreService;
 import kr.minefarm.job.jobminer.shop.MineSellCalculator;
+import kr.minefarm.job.jobminer.shop.MinerShopService;
+import kr.minefarm.job.jobminer.command.MinerShopCommand;
 import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import kr.minefarm.job.jobminer.tool.RegenWandService;
 import org.bukkit.Material;
@@ -133,6 +135,12 @@ public final class JobMinerModule implements JobModule {
         MineResetCommand resetCommand = new MineResetCommand(regenBlockRegistry, regenRestoreService);
         registerCommand(plugin, "광산초기화", "리젠 블록 즉시 복구",
                 resetCommand, resetCommand, "minefarmjob.admin");
+
+        // 광부 상점
+        MinerShopService shopService = new MinerShopService(minerConfig, sellCalculator, vaultEconomy);
+        registerCommand(plugin, "광부상점", "광부 전용 판매 상점 GUI",
+                new MinerShopCommand(plugin, context.getCore(), minerConfig, shopService),
+                null, null);
 
         plugin.getLogger().info("JobMiner module ready (regen tools, " + regenBlockRegistry.size() + " blocks loaded).");
     }

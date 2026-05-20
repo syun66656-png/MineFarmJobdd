@@ -126,6 +126,43 @@ public final class JobMinerConfig {
         return shopPrices.getOrDefault(material, 0D);
     }
 
+    /** 가격이 설정된 머티리얼 목록 (상점 GUI 카탈로그용). */
+    public java.util.List<Material> getShopPricedMaterials() {
+        return shopPrices.entrySet().stream()
+                .filter(e -> e.getValue() > 0)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /** 상점 GUI 제목 템플릿 */
+    public String getShopGuiTitle() {
+        return config.getString("shop-gui.title", "&6&l광부 상점 &8— &e{page}&8/&f{total_pages}");
+    }
+
+    public boolean isShopNotifyOnSell() {
+        return config.getBoolean("shop-gui.notify-on-sell", true);
+    }
+
+    public String getShopSellMessage() {
+        return config.getString("shop-gui.sell-message",
+                "&a[상점] &f{item} &7{amount}개 판매 → &6+{price}골드");
+    }
+
+    public String getShopSellAllMessage() {
+        return config.getString("shop-gui.sell-all-message",
+                "&a[상점] &f총 {count}종 판매 → &6+{total}골드");
+    }
+
+    public String getShopNoItemsMessage() {
+        return config.getString("shop-gui.no-items-message",
+                "&c인벤토리에 판매 가능한 광석이 없습니다.");
+    }
+
+    public String getShopVaultErrorMessage() {
+        return config.getString("shop-gui.vault-error-message",
+                "&c입금 오류가 발생했습니다. 관리자에게 문의하세요.");
+    }
+
     public Map<Material, Integer> getGuaranteedDrops() {
         return guaranteedDrops;
     }
