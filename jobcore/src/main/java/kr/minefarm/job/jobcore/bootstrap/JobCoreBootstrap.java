@@ -329,6 +329,10 @@ public final class JobCoreBootstrap {
         return pluginHooks;
     }
 
+    public JavaPlugin getPlugin() {
+        return plugin;
+    }
+
     public JobCoreState getState() {
         return state;
     }

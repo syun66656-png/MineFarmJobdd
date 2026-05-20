@@ -41,6 +41,12 @@ public final class JobService {
         this.changeCooldown = Duration.ofDays(config.getJobChangeCooldownDays());
     }
 
+    /**
+     * 직업 변경. 반환 Boolean:
+     * - true  : 변경 성공
+     * - false : 쿨타임·미등록·이미 같은 직업 등으로 변경 불가
+     * 예외 전파 대신 handle() 로 처리하여 호출부가 항상 thenAccept 를 받을 수 있다.
+     */
     public CompletableFuture<Boolean> changeJob(Player player, JobId newJobId) {
         return profileService.loadOrCreate(player).thenCompose(profile -> {
             CompletableFuture<Boolean> done = new CompletableFuture<>();
@@ -56,30 +62,14 @@ public final class JobService {
             JobId newJobId,
             CompletableFuture<Boolean> done
     ) {
-        if (!player.isOnline()) {
-            done.complete(false);
-            return;
-        }
-        if (!canChangeJob(profile)) {
-            done.complete(false);
-            return;
-        }
-        if (!newJobId.hasJob() && profile.getJobId() == JobId.NONE) {
-            done.complete(false);
-            return;
-        }
-        if (newJobId.hasJob() && !jobRegistry.isRegistered(newJobId)) {
-            done.complete(false);
-            return;
-        }
+        if (!player.isOnline()) { done.complete(false); return; }
+        if (!canChangeJob(profile)) { done.complete(false); return; }
+        if (!newJobId.hasJob() && profile.getJobId() == JobId.NONE) { done.complete(false); return; }
+        if (newJobId.hasJob() && !jobRegistry.isRegistered(newJobId)) { done.complete(false); return; }
 
         JobId previousId = profile.getJobId();
-        if (previousId == newJobId) {
-            done.complete(true);
-            return;
-        }
+        if (previousId == newJobId) { done.complete(true); return; }
 
-        // onDeselect 실패 시에도 직업 데이터·onSelect·저장이 진행되도록 try / finally
         Optional<Job> previousJob = jobRegistry.find(previousId);
         try {
             previousJob.ifPresent(job -> {
@@ -106,38 +96,35 @@ public final class JobService {
             }
         }
 
-        profileService.saveAsync(profile).whenComplete((ignored, throwable) -> {
+        // handle()로 예외 전파 대신 false 반환 — thenAccept가 항상 발화됨
+        profileService.saveAsync(profile).handle((ignored, throwable) -> {
             if (throwable != null) {
-                done.completeExceptionally(throwable);
+                plugin.getLogger().log(Level.SEVERE,
+                        "[JobCore] 직업 변경 저장 실패 (player=" + player.getName() + ")", throwable);
+                done.complete(false);
             } else {
                 done.complete(true);
             }
+            return null;
         });
     }
 
     public boolean canChangeJob(PlayerJobProfile profile) {
         Instant lastChange = profile.getLastJobChangeAt();
-        if (lastChange == null) {
-            return true;
-        }
+        if (lastChange == null) return true;
         return Duration.between(lastChange, Instant.now()).compareTo(changeCooldown) >= 0;
     }
 
     public Duration getRemainingCooldown(PlayerJobProfile profile) {
         Instant lastChange = profile.getLastJobChangeAt();
-        if (lastChange == null) {
-            return Duration.ZERO;
-        }
-        Duration elapsed = Duration.between(lastChange, Instant.now());
-        Duration remaining = changeCooldown.minus(elapsed);
+        if (lastChange == null) return Duration.ZERO;
+        Duration remaining = changeCooldown.minus(Duration.between(lastChange, Instant.now()));
         return remaining.isNegative() ? Duration.ZERO : remaining;
     }
 
     public Optional<Job> getActiveJob(Player player) {
         PlayerJobProfile profile = profileService.getCached(player.getUniqueId());
-        if (profile == null) {
-            return Optional.empty();
-        }
+        if (profile == null) return Optional.empty();
         return jobRegistry.find(profile.getJobId());
     }
 }

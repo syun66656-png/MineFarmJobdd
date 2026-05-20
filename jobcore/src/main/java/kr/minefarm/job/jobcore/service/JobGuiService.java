@@ -146,12 +146,16 @@ public final class JobGuiService {
      * @param onSuccess 메인 스레드 콜백 (null 가능)
      */
     public void selectJobAsync(Player player, JobId jobId, Runnable onSuccess) {
-        jobService.changeJob(player, jobId).thenAccept(success ->
+        jobService.changeJob(player, jobId).whenComplete((success, throwable) ->
                 runSync(() -> {
+                    if (throwable != null) {
+                        player.sendMessage(messages.get("job-select-failed"));
+                        return;
+                    }
                     if (success) {
                         player.sendMessage(messages.format(
                                 "job-select-success",
-                                Map.of("job", jobId.getDisplayName())
+                                java.util.Map.of("job", jobId.getDisplayName())
                         ));
                         player.closeInventory();
                         if (onSuccess != null) {
