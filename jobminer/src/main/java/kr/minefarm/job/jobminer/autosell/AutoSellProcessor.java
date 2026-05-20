@@ -10,9 +10,14 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 자동판매 ON 시 {@link MineSellCalculator}·Vault로 가격 있는 스택만 입금하고, 나머지는 인벤용 목록으로 반환한다.
+ * 자동판매 ON 시 AUTO_SELL 스탯 기반 확률로 드롭을 판매한다.
+ * <p>
+ * 판매 확률: {@code min(max-chance, base-chance + chance-per-level × AUTO_SELL스탯)}
+ * 확률 판정을 통과한 스택 중 가격이 있는 것만 Vault 에 입금하고,
+ * 나머지(확률 실패 + 가격 없음 + 입금 실패)는 인벤토리용 목록으로 반환한다.
  */
 public final class AutoSellProcessor {
 
@@ -35,62 +40,73 @@ public final class AutoSellProcessor {
     }
 
     /**
-     * {@link MineSellCalculator} 공식으로 가격이 나는 스택만 합산해 Vault에 입금한다.
+     * AUTO_SELL 스탯 기반 확률로 드롭을 판매한다.
      * <ul>
-     *     <li>가격 0(가격표 없음)인 스택은 판매하지 않고 {@code stacksForInventory}에 넣는다.</li>
-     *     <li>판매할 총액이 0이면 입금 없이 전부 {@code stacksForInventory}.</li>
-     *     <li>입금 실패 시에도 전부 {@code stacksForInventory}(복제)로 돌려 플레이어에게 지급 가능하게 한다.</li>
+     *   <li>확률 판정 통과 + 가격 있음 → Vault 입금 대상</li>
+     *   <li>그 외(확률 실패, 가격 없음, 입금 실패) → 인벤토리용 반환</li>
      * </ul>
      */
     public PricedAutoSellResult sellPricedStacks(Player player, PlayerJobProfile profile, List<ItemStack> drops) {
         int sellLevel = profile.getStatLevel(StatType.SELL);
+        int autoSellLevel = profile.getStatLevel(StatType.AUTO_SELL);
+
+        // AUTO_SELL 스탯 기반 판매 확률 계산
+        double sellChance = Math.min(
+                config.getAutoSellMaxChance(),
+                config.getAutoSellBaseChance() + config.getAutoSellChancePerLevel() * autoSellLevel
+        );
+
+        List<ItemStack> toSell = new ArrayList<>();
         List<ItemStack> unpriced = new ArrayList<>();
         double total = 0D;
         StringBuilder summary = new StringBuilder();
 
         for (ItemStack drop : drops) {
-            if (drop == null || drop.getType().isAir()) {
+            if (drop == null || drop.getType().isAir()) continue;
+            ItemStack copy = drop.clone();
+
+            // ① AUTO_SELL 확률 판정
+            if (ThreadLocalRandom.current().nextDouble() >= sellChance) {
+                unpriced.add(copy);
                 continue;
             }
-            ItemStack copy = drop.clone();
+
+            // ② 가격 확인
             double price = sellCalculator.calculateTotalPrice(copy, sellLevel);
             if (price <= 0D) {
                 unpriced.add(copy);
-            } else {
-                total += price;
-                if (!summary.isEmpty()) {
-                    summary.append(", ");
-                }
-                summary.append(copy.getType().name()).append(" x").append(copy.getAmount());
+                continue;
             }
+
+            total += price;
+            if (!summary.isEmpty()) summary.append(", ");
+            summary.append(copy.getType().name()).append(" x").append(copy.getAmount());
+            toSell.add(copy);
         }
 
         if (total <= 0D) {
-            return new PricedAutoSellResult(0D, cloneAllNonEmpty(drops));
+            // 판매 대상 없음 — 모두 인벤토리로
+            List<ItemStack> all = new ArrayList<>(toSell);
+            all.addAll(unpriced);
+            return new PricedAutoSellResult(0D, all);
         }
 
         if (!economy.deposit(player, total)) {
-            return new PricedAutoSellResult(0D, cloneAllNonEmpty(drops));
+            // 입금 실패 — 모두 인벤토리로
+            List<ItemStack> all = new ArrayList<>(toSell);
+            all.addAll(unpriced);
+            return new PricedAutoSellResult(0D, all);
         }
 
+        // 입금 성공 — 색상 코드 먼저 변환한 뒤 placeholder 치환
         if (config.isAutoSellNotifyPlayer()) {
-            String message = config.getAutoSellMessage()
+            String message = config.getAutoSellMessage().replace('&', '§');
+            message = message
                     .replace("{summary}", summary.toString())
                     .replace("{total_price}", sellCalculator.formatPrice(total));
-            player.sendMessage(message.replace('&', '§'));
+            player.sendMessage(message);
         }
 
         return new PricedAutoSellResult(total, unpriced);
-    }
-
-    private static List<ItemStack> cloneAllNonEmpty(List<ItemStack> drops) {
-        List<ItemStack> out = new ArrayList<>();
-        for (ItemStack drop : drops) {
-            if (drop == null || drop.getType().isAir()) {
-                continue;
-            }
-            out.add(drop.clone());
-        }
-        return out;
     }
 }
