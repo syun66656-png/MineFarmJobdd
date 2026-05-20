@@ -14,11 +14,24 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 메모리 캐시 + 비동기 로드/저장.
+ * <p>
+ * {@link #loadOrCreate} 는 {@link ConcurrentHashMap#computeIfAbsent} 기반으로
+ * 동일 UUID 에 대한 동시 호출이 두 개의 인스턴스를 만드는 레이스를 방지한다.
  */
 public final class PlayerProfileService {
 
     private final PlayerJobRepository repository;
+
+    /**
+     * 로드 완료된 프로필 캐시 (직접 조회용).
+     */
     private final Map<UUID, PlayerJobProfile> cache = new ConcurrentHashMap<>();
+
+    /**
+     * 진행 중인 로드 Future 캐시 — 같은 UUID 로 동시 요청이 와도 하나만 실행됨.
+     */
+    private final Map<UUID, CompletableFuture<PlayerJobProfile>> futureCache = new ConcurrentHashMap<>();
+
     private final AtomicInteger pendingWrites = new AtomicInteger(0);
 
     public PlayerProfileService(PlayerJobRepository repository) {
@@ -30,15 +43,14 @@ public final class PlayerProfileService {
     }
 
     public CompletableFuture<PlayerJobProfile> loadOrCreate(UUID uuid) {
-        PlayerJobProfile cached = cache.get(uuid);
-        if (cached != null) {
-            return CompletableFuture.completedFuture(cached);
-        }
-        return repository.loadAsync(uuid).thenApply(optional -> {
-            PlayerJobProfile profile = optional.orElseGet(() -> new PlayerJobProfile(uuid));
-            cache.put(uuid, profile);
-            return profile;
-        });
+        // futureCache.computeIfAbsent 로 동시 로드 레이스 제거
+        return futureCache.computeIfAbsent(uuid, id ->
+                repository.loadAsync(id).thenApply(optional -> {
+                    PlayerJobProfile profile = optional.orElseGet(() -> new PlayerJobProfile(id));
+                    cache.put(id, profile);
+                    return profile;
+                })
+        );
     }
 
     public PlayerJobProfile getCached(UUID uuid) {
@@ -56,6 +68,7 @@ public final class PlayerProfileService {
     }
 
     public void unload(UUID uuid) {
+        futureCache.remove(uuid);
         PlayerJobProfile profile = cache.remove(uuid);
         if (profile != null && profile.isDirty()) {
             saveAsync(profile);

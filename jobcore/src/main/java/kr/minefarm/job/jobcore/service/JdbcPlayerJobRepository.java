@@ -18,6 +18,11 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * MariaDB JDBC 기반 {@link PlayerJobRepository} 구현.
+ * <p>
+ * 비동기 저장은 {@link PlayerJobProfile#snapshot()} 으로 일관된 스냅샷을 먼저 획득한 뒤
+ * PreparedStatement 에 바인딩한다. 저장 도중 메인 스레드의 수정이 끼어들어도
+ * 스냅샷의 데이터가 온전히 저장되며, 실패 시 {@link PlayerJobProfile#markDirty()} 로
+ * 복원하여 다음 flush 주기에 재시도된다.
  */
 public final class JdbcPlayerJobRepository implements PlayerJobRepository {
 
@@ -60,9 +65,20 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
         return database.supplyAsync(connection -> load(connection, uuid));
     }
 
+    /**
+     * 저장 전 스냅샷을 atomic 하게 획득한다. 저장 실패 시 dirty 를 복원한다.
+     */
     @Override
     public CompletableFuture<Void> saveAsync(PlayerJobProfile profile) {
-        return database.runAsync(connection -> save(connection, profile));
+        // 스냅샷 획득과 동시에 dirty 해제 (lost-update 방지)
+        PlayerJobProfile.Snapshot snap = profile.snapshot();
+        return database.runAsync(connection -> save(connection, snap))
+                .exceptionally(throwable -> {
+                    // 저장 실패 시 dirty 복원 → 다음 flush 주기에 재시도
+                    profile.markDirty();
+                    throw throwable instanceof RuntimeException re ? re
+                            : new RuntimeException(throwable);
+                });
     }
 
     @Override
@@ -96,27 +112,31 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
 
     @Override
     public void save(Connection connection, PlayerJobProfile profile) throws SQLException {
+        save(connection, profile.snapshot());
+    }
+
+    /** 스냅샷 기반 저장 — 저장 도중 프로필 변경의 영향을 받지 않는다. */
+    private void save(Connection connection, PlayerJobProfile.Snapshot snap) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(UPSERT)) {
-            statement.setString(1, profile.getUuid().toString());
-            statement.setString(2, profile.getJobId().getKey());
-            statement.setInt(3, profile.getLevel());
-            statement.setLong(4, profile.getExperience());
-            statement.setInt(5, profile.getStatPoints());
-            statement.setInt(6, profile.getInvestedStats());
-            statement.setInt(7, profile.getStatLevel(StatType.RELIC));
-            statement.setInt(8, profile.getStatLevel(StatType.SKILL));
-            statement.setInt(9, profile.getStatLevel(StatType.SELL));
-            statement.setInt(10, profile.getStatLevel(StatType.AUTO_SELL));
-            statement.setInt(11, profile.isAutoSellEnabled() ? 1 : 0);
-            Instant lastChange = profile.getLastJobChangeAt();
-            if (lastChange == null) {
+            statement.setString(1, snap.uuid().toString());
+            statement.setString(2, snap.jobId().getKey());
+            statement.setInt(3, snap.level());
+            statement.setLong(4, snap.experience());
+            statement.setInt(5, snap.statPoints());
+            statement.setInt(6, snap.investedStats());
+            statement.setInt(7, snap.statRelic());
+            statement.setInt(8, snap.statSkill());
+            statement.setInt(9, snap.statSell());
+            statement.setInt(10, snap.statAutoSell());
+            statement.setInt(11, snap.autoSellEnabled() ? 1 : 0);
+            if (snap.lastJobChangeAt() == null) {
                 statement.setNull(12, Types.BIGINT);
             } else {
-                statement.setLong(12, lastChange.toEpochMilli());
+                statement.setLong(12, snap.lastJobChangeAt().toEpochMilli());
             }
             statement.setLong(13, Instant.now().toEpochMilli());
             statement.executeUpdate();
-            profile.clearDirty();
+            // clearDirty는 snapshot() 내부에서 이미 처리됨
         }
     }
 }
