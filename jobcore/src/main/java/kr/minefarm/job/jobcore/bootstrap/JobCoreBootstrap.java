@@ -482,10 +482,18 @@ public final class JobCoreBootstrap {
     public ModuleReloadResult reloadTarget(CommandSender sender, String targetId) {
         sendReloadStart(sender);
 
-        ModuleReloadResult result;
+        // core 단독 리로드도 모듈이 새 coreApi를 받도록 reloadAll과 동일 플로우를 탄다.
+        // 기존: reloadCore()만 호출 → 모듈이 옛 coreApi(=옛 jobService/statService) 보유
+        // 수정: core 지정 시에도 모듈 disable → core reload → 모듈 enable(새 coreApi)
         if (JobModuleLoader.CORE_ID.equals(targetId)) {
-            result = reloadCore();
-        } else if (!modulesLoaded) {
+            List<ModuleReloadResult> results = reloadAll(sender);
+            return results.stream()
+                    .filter(r -> r instanceof ModuleReloadResult.Failure)
+                    .findFirst()
+                    .orElse(ModuleReloadResult.ok(JobModuleLoader.CORE_ID));
+        }
+
+        ModuleReloadResult result;
             result = ModuleReloadResult.fail(targetId, "직업 모듈이 아직 로드되지 않았습니다.", null);
         } else {
             result = moduleLoader.reloadModule(targetId, coreApi);
