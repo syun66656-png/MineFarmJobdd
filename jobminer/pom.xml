@@ -28,10 +28,6 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.sk89q.worldguard</groupId>
-            <artifactId>worldguard-bukkit</artifactId>
-        </dependency>
         <!-- ── 테스트 ── -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
