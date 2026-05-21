@@ -20,45 +20,32 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 
 /**
- * 광부 상점 GUI (54칸).
+ * 광부 상점 GUI — config(shop-gui.items) 기반.
  * <p>
- * 레이아웃:
- * <pre>
- *  행 0~3 (슬롯 0~35): 상점 카탈로그 — 가격 있는 광석 목록 (페이지네이션)
- *  행 4   (슬롯 36~44): 빈 공간 (구분선)
- *  슬롯 45: ◀ 이전 페이지
- *  슬롯 47: 인벤토리에 있는 판매 가능 아이템 요약
- *  슬롯 49: ★ 전체 판매 (가격 있는 모든 아이템 즉시 판매)
- *  슬롯 51: ▶ 다음 페이지
- *  슬롯 53: ✕ 닫기
- * </pre>
- * 카탈로그 슬롯 클릭 → 해당 머티리얼만 판매
+ * 각 슬롯은 ShopGuiItem 정의로 채워진다:
+ *   - display: GUI 표시용(material/name/lore/custom-model-data 자유 설정)
+ *   - sell:    실제 판매 매칭 기준(material + customModelData + name) + unit-price
+ * <p>
+ * 클릭 시 GUI 아이콘이 아니라 sell 정의를 기준으로 인벤에서 일치하는 아이템을 찾아 판매.
  */
 public final class MinerShopGui implements Listener {
 
-    private static final int PAGE_SIZE = 36;   // 행 0~3
-    private static final int SLOT_PREV      = 45;
-    private static final int SLOT_SUMMARY   = 47;
-    private static final int SLOT_SELL_ALL  = 49;
-    private static final int SLOT_NEXT      = 51;
-    private static final int SLOT_CLOSE     = 53;
-
-    private static final Material BORDER_MAT = Material.GRAY_STAINED_GLASS_PANE;
-    private static final Material SELL_ALL_MAT = Material.LIME_STAINED_GLASS_PANE;
+    private static final LegacyComponentSerializer AMP = LegacyComponentSerializer.legacyAmpersand();
 
     private final JavaPlugin plugin;
     private final JobCoreAPI core;
     private final JobMinerConfig config;
     private final MinerShopService shopService;
-
     private final Player player;
+
     private Inventory inventory;
-    private int currentPage = 0;
-    private List<Material> catalog;
+    /** slot → ShopGuiItem (클릭 라우팅용) */
+    private final Map<Integer, JobMinerConfig.ShopGuiItem> slotMap = new HashMap<>();
 
     public MinerShopGui(
             JavaPlugin plugin,
@@ -72,7 +59,6 @@ public final class MinerShopGui implements Listener {
         this.config = config;
         this.shopService = shopService;
         this.player = player;
-        this.catalog = shopService.getPricedMaterials();
     }
 
     public void open() {
@@ -81,209 +67,159 @@ public final class MinerShopGui implements Listener {
         player.openInventory(inventory);
     }
 
-    // ── 인벤토리 빌드 ──────────────────────────────────────────────────────────
-
     private void buildInventory() {
+        slotMap.clear();
         PlayerJobProfile profile = core.getPlayerProfiles().getCached(player.getUniqueId());
         int sellStat = profile != null ? profile.getStatLevel(StatType.SELL) : 0;
 
-        int totalPages = Math.max(1, (int) Math.ceil((double) catalog.size() / PAGE_SIZE));
-        currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
+        int size = config.getShopGuiSize();
+        String title = config.getShopGuiTitle().replace('&', '§');
+        inventory = Bukkit.createInventory(null, size, LegacyComponentSerializer.legacySection().deserialize(title));
 
-        String rawTitle = config.getShopGuiTitle()
-                .replace("{page}", String.valueOf(currentPage + 1))
-                .replace("{total_pages}", String.valueOf(totalPages))
-                .replace('&', '§');
-
-        inventory = Bukkit.createInventory(null, 54, component(rawTitle));
-
-        // 테두리 채우기 (행 4)
-        for (int slot = 36; slot < 45; slot++) {
-            inventory.setItem(slot, border());
-        }
-        for (int slot = 45; slot < 54; slot++) {
-            inventory.setItem(slot, border());
+        // shop-gui.items 의 각 슬롯 채우기
+        for (JobMinerConfig.ShopGuiItem guiItem : config.getShopGuiItems()) {
+            int slot = guiItem.slot();
+            if (slot < 0 || slot >= size) continue;
+            inventory.setItem(slot, buildDisplayItem(guiItem, sellStat));
+            slotMap.put(slot, guiItem);
         }
 
-        // 카탈로그 슬롯 채우기
-        int start = currentPage * PAGE_SIZE;
-        for (int i = 0; i < PAGE_SIZE; i++) {
-            int idx = start + i;
-            if (idx >= catalog.size()) {
-                inventory.setItem(i, null);
-                continue;
-            }
-            Material mat = catalog.get(idx);
-            inventory.setItem(i, makeCatalogItem(mat, sellStat, profile));
+        // 레이아웃(전체판매/닫기 등) — config의 shop-gui.layout.<key>.{slot,material,name,lore}
+        // sell-all
+        int sellAllSlot = config.getShopGuiLayoutSlot("sell-all", -1);
+        if (sellAllSlot >= 0 && sellAllSlot < size) {
+            Material mat = config.getShopGuiLayoutMaterial("sell-all", Material.LIME_STAINED_GLASS_PANE);
+            String name = config.getShopGuiLayoutName("sell-all", "&a&l★ 전체 판매");
+            List<String> lore = withDefault(config.getShopGuiLayoutLore("sell-all"),
+                    List.of("&7판매 가능한 아이템을 모두 판매합니다.", "", "&e▶ 클릭"));
+            inventory.setItem(sellAllSlot, makeLayoutItem(mat, name, lore));
         }
-
-        // 이전 페이지 버튼
-        if (currentPage > 0) {
-            inventory.setItem(SLOT_PREV, makeNavItem(Material.ARROW, "§e◀ 이전 페이지"));
+        // close
+        int closeSlot = config.getShopGuiLayoutSlot("close", -1);
+        if (closeSlot >= 0 && closeSlot < size) {
+            Material mat = config.getShopGuiLayoutMaterial("close", Material.BARRIER);
+            String name = config.getShopGuiLayoutName("close", "&c✕ 닫기");
+            List<String> lore = withDefault(config.getShopGuiLayoutLore("close"), List.of());
+            inventory.setItem(closeSlot, makeLayoutItem(mat, name, lore));
         }
-
-        // 다음 페이지 버튼
-        if (currentPage < totalPages - 1) {
-            inventory.setItem(SLOT_NEXT, makeNavItem(Material.ARROW, "§e▶ 다음 페이지"));
-        }
-
-        // 전체 판매 버튼
-        inventory.setItem(SLOT_SELL_ALL, makeSellAllButton(profile));
-
-        // 요약 버튼 (내 인벤의 팔 수 있는 총액)
-        inventory.setItem(SLOT_SUMMARY, makeSummaryItem(sellStat, profile));
-
-        // 닫기
-        inventory.setItem(SLOT_CLOSE, makeNavItem(Material.BARRIER, "§c✕ 닫기"));
-    }
-
-    private ItemStack makeCatalogItem(Material mat, int sellStat, PlayerJobProfile profile) {
-        ItemStack icon = new ItemStack(mat, 1);
-        ItemMeta meta = icon.getItemMeta();
-        if (meta == null) return icon;
-
-        double basePrice = config.getShopBasePrice(mat);
-        double statPrice = shopService.formatUnitPrice(mat, sellStat).equals("0") ? basePrice
-                : Double.parseDouble(shopService.formatUnitPrice(mat, sellStat).replace(",", ""));
-
-        // 내 인벤토리의 해당 아이템 수량
-        int inInventory = countInInventory(mat);
-
-        String name = "§f" + friendlyName(mat);
-        List<String> lore = new ArrayList<>();
-        lore.add("§7기본 단가: §6" + config.getShopBasePrice(mat) + "§7골드/개");
-        if (sellStat > 0) {
-            lore.add("§7스탯 적용 단가: §a" + shopService.formatUnitPrice(mat, sellStat) + "§7골드/개");
-        }
-        lore.add("§7내 보유량: §f" + inInventory + "§7개");
-        if (inInventory > 0) {
-            double totalEarning = basePrice * inInventory
-                    * (1 + config.getSellBonusMultiplier() * sellStat);
-            lore.add("§7예상 수익: §6+" + String.format("%.1f", totalEarning) + "§7골드");
-            lore.add("");
-            lore.add("§e▶ 클릭하여 전량 판매");
-        } else {
-            lore.add("");
-            lore.add("§8보유 없음");
-        }
-
-        meta.displayName(component(name));
-        meta.lore(lore.stream().map(this::component).toList());
-        icon.setItemMeta(meta);
-        return icon;
-    }
-
-    private ItemStack makeSellAllButton(PlayerJobProfile profile) {
-        ItemStack icon = new ItemStack(SELL_ALL_MAT, 1);
-        ItemMeta meta = icon.getItemMeta();
-        if (meta == null) return icon;
-
-        int sellStat = profile != null ? profile.getStatLevel(StatType.SELL) : 0;
-        double totalEarning = estimateTotalEarning(sellStat);
-
-        meta.displayName(component("§a§l★ 전체 판매"));
-        List<String> lore = new ArrayList<>();
-        lore.add("§7인벤토리의 판매 가능한 광석을 모두 판매합니다.");
-        lore.add("");
-        lore.add("§7예상 총 수익: §6+" + String.format("%.1f", totalEarning) + "§7골드");
-        lore.add("");
-        lore.add("§e▶ 클릭하여 전체 판매");
-        meta.lore(lore.stream().map(this::component).toList());
-        icon.setItemMeta(meta);
-        return icon;
-    }
-
-    private ItemStack makeSummaryItem(int sellStat, PlayerJobProfile profile) {
-        ItemStack icon = new ItemStack(Material.GOLD_NUGGET, 1);
-        ItemMeta meta = icon.getItemMeta();
-        if (meta == null) return icon;
-
-        meta.displayName(component("§e내 판매 가능 아이템"));
-        List<String> lore = new ArrayList<>();
-        int kinds = 0;
-        for (Material mat : catalog) {
-            int cnt = countInInventory(mat);
-            if (cnt > 0) {
-                kinds++;
-                lore.add("§f" + friendlyName(mat) + " §7x§f" + cnt);
+        // filler (지정 슬롯 외 빈 공간을 채울 머티리얼)
+        Material filler = config.getShopGuiLayoutMaterial("filler", null);
+        if (filler != null) {
+            String fillerName = config.getShopGuiLayoutName("filler", " ");
+            for (int i = 0; i < size; i++) {
+                if (inventory.getItem(i) == null) {
+                    inventory.setItem(i, makeLayoutItem(filler, fillerName, List.of()));
+                }
             }
         }
-        if (kinds == 0) {
-            lore.add("§8판매 가능한 아이템 없음");
-        }
-        meta.lore(lore.stream().map(this::component).toList());
-        icon.setItemMeta(meta);
-        return icon;
     }
 
-    private ItemStack makeNavItem(Material mat, String name) {
-        ItemStack icon = new ItemStack(mat, 1);
-        ItemMeta meta = icon.getItemMeta();
-        if (meta != null) {
-            meta.displayName(component(name));
-            icon.setItemMeta(meta);
+    private ItemStack buildDisplayItem(JobMinerConfig.ShopGuiItem guiItem, int sellStat) {
+        JobMinerConfig.ShopGuiItem.DisplayDef d = guiItem.display();
+        JobMinerConfig.ShopGuiItem.SellDef sell = guiItem.sell();
+
+        ItemStack stack = new ItemStack(d.material(), 1);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return stack;
+
+        double basePrice = sell.unitPrice();
+        double bonusMul = config.getSellBonusMultiplier();
+        double myUnit = basePrice * (1 + bonusMul * sellStat);
+        int myAmount = shopService.countMatching(player, sell);
+        double expectedTotal = myUnit * myAmount;
+
+        // 플레이스홀더 변환
+        Map<String, String> ph = new HashMap<>();
+        ph.put("{base-price}", fmtNum(basePrice));
+        ph.put("{my-price}", fmtNum(myUnit));
+        ph.put("{my-amount}", String.valueOf(myAmount));
+        ph.put("{expected-total}", fmtNum(expectedTotal));
+        ph.put("{sell-stat}", String.valueOf(sellStat));
+        ph.put("{bonus-percent}", fmtNum(bonusMul * sellStat * 100));
+
+        if (d.name() != null && !d.name().isBlank()) {
+            meta.displayName(AMP.deserialize(applyPlaceholders(d.name(), ph)));
         }
-        return icon;
+        if (d.lore() != null && !d.lore().isEmpty()) {
+            List<Component> loreComponents = new ArrayList<>();
+            for (String line : d.lore()) {
+                loreComponents.add(AMP.deserialize(applyPlaceholders(line == null ? "" : line, ph)));
+            }
+            meta.lore(loreComponents);
+        }
+        if (d.customModelData() != null && d.customModelData() > 0) {
+            meta.setCustomModelData(d.customModelData());
+        }
+        stack.setItemMeta(meta);
+        return stack;
     }
 
-    private ItemStack border() {
-        ItemStack pane = new ItemStack(BORDER_MAT, 1);
-        ItemMeta meta = pane.getItemMeta();
-        if (meta != null) {
-            meta.displayName(component(" "));
-            pane.setItemMeta(meta);
+    private static ItemStack makeLayoutItem(Material mat, String name, List<String> lore) {
+        ItemStack stack = new ItemStack(mat, 1);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return stack;
+        if (name != null) meta.displayName(AMP.deserialize(name));
+        if (lore != null && !lore.isEmpty()) {
+            List<Component> components = new ArrayList<>();
+            for (String line : lore) {
+                components.add(AMP.deserialize(line == null ? "" : line));
+            }
+            meta.lore(components);
         }
-        return pane;
+        stack.setItemMeta(meta);
+        return stack;
     }
 
-    // ── 이벤트 처리 ────────────────────────────────────────────────────────────
+    private static String applyPlaceholders(String input, Map<String, String> ph) {
+        String out = input;
+        for (Map.Entry<String, String> e : ph.entrySet()) {
+            out = out.replace(e.getKey(), e.getValue());
+        }
+        return out;
+    }
+
+    private static String fmtNum(double v) {
+        if (v == Math.rint(v)) return String.valueOf((long) v);
+        return String.format("%.1f", v);
+    }
+
+    private static List<String> withDefault(List<String> list, List<String> def) {
+        if (list == null || list.isEmpty()) return def;
+        return list;
+    }
+
+    // ── 이벤트 ────────────────────────────────────────────────────────────────
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!event.getInventory().equals(inventory)) return;
-        if (!(event.getWhoClicked() instanceof Player clicker)) return;
-        if (!clicker.equals(player)) return;
-
+        if (!(event.getWhoClicked() instanceof Player clicker) || !clicker.equals(player)) return;
         event.setCancelled(true);
+
         int slot = event.getRawSlot();
-        if (slot < 0 || slot >= 54) return;
+        if (slot < 0 || slot >= inventory.getSize()) return;
 
         PlayerJobProfile profile = core.getPlayerProfiles().getCached(player.getUniqueId());
         if (profile == null) return;
 
-        if (slot == SLOT_CLOSE) {
+        // 닫기
+        if (slot == config.getShopGuiLayoutSlot("close", -1)) {
             player.closeInventory();
             return;
         }
-
-        if (slot == SLOT_PREV && currentPage > 0) {
-            currentPage--;
-            buildInventory();
-            player.openInventory(inventory);
-            return;
-        }
-
-        if (slot == SLOT_NEXT) {
-            currentPage++;
-            buildInventory();
-            player.openInventory(inventory);
-            return;
-        }
-
-        if (slot == SLOT_SELL_ALL) {
+        // 전체 판매
+        if (slot == config.getShopGuiLayoutSlot("sell-all", -1)) {
             handleSellAll(profile);
             buildInventory();
             player.openInventory(inventory);
             return;
         }
-
-        if (slot < PAGE_SIZE) {
-            int idx = currentPage * PAGE_SIZE + slot;
-            if (idx < catalog.size()) {
-                handleSellOne(catalog.get(idx), profile);
-                buildInventory();
-                player.openInventory(inventory);
-            }
+        // 카탈로그 슬롯
+        JobMinerConfig.ShopGuiItem guiItem = slotMap.get(slot);
+        if (guiItem != null) {
+            handleSellOne(guiItem, profile);
+            buildInventory();
+            player.openInventory(inventory);
         }
     }
 
@@ -293,76 +229,45 @@ public final class MinerShopGui implements Listener {
         HandlerList.unregisterAll(this);
     }
 
-    // ── 판매 처리 ──────────────────────────────────────────────────────────────
+    // ── 판매 처리 ─────────────────────────────────────────────────────────────
 
-    private void handleSellOne(Material material, PlayerJobProfile profile) {
-        MinerShopService.SellResult result = shopService.sellAll(player, material, profile);
+    private void handleSellOne(JobMinerConfig.ShopGuiItem guiItem, PlayerJobProfile profile) {
+        MinerShopService.SellResult result = shopService.sellByGuiItem(player, guiItem, profile);
         if (!config.isShopNotifyOnSell()) return;
+        notifyResult(result, guiItem);
+    }
 
+    private void handleSellAll(PlayerJobProfile profile) {
+        MinerShopService.BulkSellResult result = shopService.sellAllByGui(player, profile);
+        if (!config.isShopNotifyOnSell()) return;
+        if (result.count() == 0) {
+            player.sendMessage(config.getShopNoItemsMessage().replace('&', '§'));
+            return;
+        }
+        player.sendMessage(config.getShopSellAllMessage()
+                .replace("{count}", String.valueOf(result.count()))
+                .replace("{total}", fmtNum(result.totalEarning()))
+                .replace('&', '§'));
+    }
+
+    private void notifyResult(MinerShopService.SellResult result, JobMinerConfig.ShopGuiItem guiItem) {
         MinerShopService.SellResult.Status status = result.status();
+        String itemName = guiItem.display().name() != null
+                ? net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                    .serialize(AMP.deserialize(guiItem.display().name()))
+                : result.material().name();
         if (status == MinerShopService.SellResult.Status.SUCCESS) {
             player.sendMessage(config.getShopSellMessage()
-                    .replace("{item}", friendlyName(material))
+                    .replace("{item}", itemName)
                     .replace("{amount}", String.valueOf(result.amount()))
-                    .replace("{price}", String.format("%.1f", result.price()))
+                    .replace("{price}", fmtNum(result.price()))
                     .replace('&', '§'));
         } else if (status == MinerShopService.SellResult.Status.NO_ITEMS) {
-            player.sendMessage("§c" + friendlyName(material) + "이(가) 인벤토리에 없습니다.");
+            player.sendMessage("§c" + itemName + "이(가) 인벤토리에 없습니다.");
         } else if (status == MinerShopService.SellResult.Status.VAULT_ERROR) {
             player.sendMessage(config.getShopVaultErrorMessage().replace('&', '§'));
         } else if (status == MinerShopService.SellResult.Status.NO_PRICE) {
             player.sendMessage("§c해당 아이템은 판매할 수 없습니다.");
         }
-    }
-
-    private void handleSellAll(PlayerJobProfile profile) {
-        MinerShopService.BulkSellResult result = shopService.sellAllPriced(player, profile);
-        if (!config.isShopNotifyOnSell()) return;
-
-        if (!result.isSuccess()) {
-            if (result.materialCount() == 0) {
-                player.sendMessage(config.getShopNoItemsMessage().replace('&', '§'));
-            } else {
-                player.sendMessage(config.getShopVaultErrorMessage().replace('&', '§'));
-            }
-            return;
-        }
-        player.sendMessage(config.getShopSellAllMessage()
-                .replace("{count}", String.valueOf(result.materialCount()))
-                .replace("{total}", String.format("%.1f", result.totalGold()))
-                .replace('&', '§'));
-    }
-
-    // ── 유틸 ──────────────────────────────────────────────────────────────────
-
-    private int countInInventory(Material mat) {
-        int count = 0;
-        for (ItemStack stack : player.getInventory().getContents()) {
-            if (stack != null && stack.getType() == mat) {
-                count += stack.getAmount();
-            }
-        }
-        return count;
-    }
-
-    private double estimateTotalEarning(int sellStat) {
-        double total = 0.0;
-        for (Material mat : catalog) {
-            int cnt = countInInventory(mat);
-            if (cnt == 0) continue;
-            double base = config.getShopBasePrice(mat);
-            total += base * cnt * (1 + config.getSellBonusMultiplier() * sellStat);
-        }
-        return total;
-    }
-
-    private static String friendlyName(Material mat) {
-        return mat.name().replace('_', ' ').toLowerCase(Locale.ROOT)
-                .substring(0, 1).toUpperCase(Locale.ROOT)
-                + mat.name().replace('_', ' ').toLowerCase(Locale.ROOT).substring(1);
-    }
-
-    private Component component(String legacyText) {
-        return LegacyComponentSerializer.legacySection().deserialize(legacyText);
     }
 }

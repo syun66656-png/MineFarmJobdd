@@ -29,6 +29,7 @@ public final class JobMinerConfig {
     private final List<CommonDrop> commonDrops;
     private final java.util.Set<String> passiveAllowedRegions;
     private final java.util.Set<String> mineAllowedRegions;
+    private final java.util.List<ShopGuiItem> shopGuiItems;
     private final Map<Material, Double> shopPrices;
     private final MineExpTable mineExpTable;
     private final boolean dynamiteEnabled;
@@ -57,6 +58,7 @@ public final class JobMinerConfig {
         this.commonDrops = loadCommonDrops();
         this.passiveAllowedRegions = loadPassiveAllowedRegions();
         this.mineAllowedRegions = loadMineAllowedRegions();
+        this.shopGuiItems = loadShopGuiItems();
         this.shopPrices = loadShopPrices();
         this.mineExpTable = loadMineExpTable();
         this.dynamiteEnabled = config.getBoolean("dynamite.enabled", false);
@@ -207,6 +209,11 @@ public final class JobMinerConfig {
         return commonDrops;
     }
 
+    /** 광부 상점 GUI 카탈로그 슬롯 정의 목록 */
+    public java.util.List<ShopGuiItem> getShopGuiItems() {
+        return shopGuiItems;
+    }
+
     /**
      * 인벤토리 ItemStack과 매칭되는 ore-drop/common-drop의 단가 반환.
      * 매칭 기준: Material + customModelData + displayName(평문).
@@ -315,6 +322,35 @@ public final class JobMinerConfig {
     ) {
     }
 
+    /**
+     * 광부 상점 GUI 카탈로그 슬롯 정의.
+     * <p>
+     * display: GUI에 보일 아이템 (자유롭게 설정 — 로어에 {base-price}, {my-price},
+     *   {my-amount}, {expected-total} 등 플레이스홀더 사용 가능)
+     * sell:    실제 판매 매칭 기준 (material + customModelData + name)
+     *          + unit-price (1개 단가). 인벤토리에서 일치하는 ItemStack을 모두 판매.
+     */
+    public record ShopGuiItem(
+            String id,
+            int slot,
+            DisplayDef display,
+            SellDef sell
+    ) {
+        public record DisplayDef(
+                Material material,
+                String name,
+                java.util.List<String> lore,
+                Integer customModelData
+        ) {}
+
+        public record SellDef(
+                Material material,
+                String name,
+                Integer customModelData,
+                double unitPrice
+        ) {}
+    }
+
     private Map<Material, Integer> loadGuaranteedDrops() {
         ConfigurationSection section = config.getConfigurationSection("guaranteed-drops");
         if (section == null) {
@@ -404,6 +440,72 @@ public final class JobMinerConfig {
         List<String> regions = root.getStringList("allowed-regions");
         if (regions == null || regions.isEmpty()) return java.util.Set.of();
         return java.util.Set.copyOf(regions);
+    }
+
+    private java.util.List<ShopGuiItem> loadShopGuiItems() {
+        ConfigurationSection root = config.getConfigurationSection("shop-gui.items");
+        if (root == null) return java.util.List.of();
+        java.util.List<ShopGuiItem> list = new ArrayList<>();
+        for (String id : root.getKeys(false)) {
+            ConfigurationSection itemSec = root.getConfigurationSection(id);
+            if (itemSec == null) continue;
+            int slot = itemSec.getInt("slot", -1);
+            if (slot < 0) continue;
+
+            ConfigurationSection dispSec = itemSec.getConfigurationSection("display");
+            ConfigurationSection sellSec = itemSec.getConfigurationSection("sell");
+            if (dispSec == null || sellSec == null) continue;
+
+            Material dispMat = parseMaterial(dispSec.getString("material"));
+            Material sellMat = parseMaterial(sellSec.getString("material"));
+            if (dispMat == null || sellMat == null) continue;
+
+            String dispName = dispSec.getString("name");
+            List<String> dispLore = dispSec.getStringList("lore");
+            Integer dispCmd = dispSec.contains("custom-model-data")
+                    ? readCustomModelData(dispSec.getInt("custom-model-data", 0)) : null;
+
+            String sellName = sellSec.getString("name");
+            Integer sellCmd = sellSec.contains("custom-model-data")
+                    ? readCustomModelData(sellSec.getInt("custom-model-data", 0)) : null;
+            double unitPrice = sellSec.getDouble("unit-price", 0.0);
+
+            list.add(new ShopGuiItem(
+                    id,
+                    slot,
+                    new ShopGuiItem.DisplayDef(dispMat, dispName, dispLore, dispCmd),
+                    new ShopGuiItem.SellDef(sellMat, sellName, sellCmd, unitPrice)
+            ));
+        }
+        return java.util.List.copyOf(list);
+    }
+
+    /** shop-gui.size 기본 54 */
+    public int getShopGuiSize() {
+        int s = config.getInt("shop-gui.size", 54);
+        // Inventory size는 9의 배수만 허용
+        if (s % 9 != 0 || s < 9 || s > 54) return 54;
+        return s;
+    }
+
+    /** shop-gui.layout.<key>.slot — 네비 슬롯 등 */
+    public int getShopGuiLayoutSlot(String key, int defaultSlot) {
+        return config.getInt("shop-gui.layout." + key + ".slot", defaultSlot);
+    }
+
+    public String getShopGuiLayoutName(String key, String defaultName) {
+        return config.getString("shop-gui.layout." + key + ".name", defaultName);
+    }
+
+    public Material getShopGuiLayoutMaterial(String key, Material defaultMat) {
+        String name = config.getString("shop-gui.layout." + key + ".material");
+        if (name == null) return defaultMat;
+        Material m = parseMaterial(name);
+        return m != null ? m : defaultMat;
+    }
+
+    public List<String> getShopGuiLayoutLore(String key) {
+        return config.getStringList("shop-gui.layout." + key + ".lore");
     }
 
     private List<SpecialDrop> loadSpecialDrops() {

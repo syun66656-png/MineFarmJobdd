@@ -276,17 +276,110 @@ guaranteed-drops: {}
 # (Deprecated, 호환 유지) 광물 무관 확률 드롭 — 가능하면 common-drops 사용 권장
 special-drops: {}
 
-# 광부 상점 GUI (/광부상점 명령어)
+# ─────────────────────────────────────────────────────────────────────────────
+# 광부 상점 GUI (/광부상점)
+# ─────────────────────────────────────────────────────────────────────────────
+# 각 슬롯은 두 부분으로 정의:
+#   display: GUI 표시용 (자유롭게 — 로어 안에 플레이스홀더 사용 가능)
+#   sell:    실제 판매 매칭 기준 (인벤토리 아이템 ↔ material + custom-model-data + name)
+#
+# 사용 가능 플레이스홀더 (display.lore / display.name 에서):
+#   {base-price}      sell.unit-price (기본 단가)
+#   {my-price}        SELL스탯 적용 단가 = base × (1 + bonus-multiplier × SELL)
+#   {my-amount}       내 인벤토리의 매칭 아이템 총 수량
+#   {expected-total}  my-price × my-amount
+#   {sell-stat}       내 SELL 스탯 레벨
+#   {bonus-percent}   bonus-multiplier × SELL × 100 (예: 25면 +25%)
+#
+# 판매 동작:
+#   슬롯 클릭 시 sell 정의 (material+cmd+name) 와 인벤토리 ItemStack을 매칭하여
+#   일치하는 모든 ItemStack을 합산해 판매 (GUI 아이콘의 표시값과는 무관).
+# ─────────────────────────────────────────────────────────────────────────────
 shop-gui:
-  title: "&6&l광부 상점 &8— &e{page}&8/&f{total_pages}"
+  title: "&6&l광부 상점"
   size: 54
-  # 판매 시 확인 메시지 출력 여부
   notify-on-sell: true
   sell-message: "&a[상점] &f{item} &7{amount}개 판매 → &6+{price}골드"
   sell-all-message: "&a[상점] &f총 {count}종 판매 → &6+{total}골드"
-  # 아이템 없을 때 메시지
   no-items-message: "&c인벤토리에 판매 가능한 광석이 없습니다."
   vault-error-message: "&c입금 오류가 발생했습니다. 관리자에게 문의하세요."
+
+  # 레이아웃(고정 버튼) — slot 음수면 비활성
+  layout:
+    sell-all:
+      slot: 49
+      material: LIME_STAINED_GLASS_PANE
+      name: "&a&l★ 전체 판매"
+      lore:
+        - "&7인벤토리의 판매 가능 아이템을 모두 판매합니다."
+        - ""
+        - "&e▶ 클릭"
+    close:
+      slot: 53
+      material: BARRIER
+      name: "&c✕ 닫기"
+    filler:
+      # 지정 슬롯 외 빈 공간 채울 머티리얼 (비우려면 이 항목 자체 제거)
+      material: BLACK_STAINED_GLASS_PANE
+      name: " "
+
+  # 카탈로그 슬롯들 — 각 슬롯 = display + sell
+  items:
+    diamond:
+      slot: 11
+      display:
+        material: DIAMOND
+        name: "&b&l반짝이는 다이아"
+        lore:
+          - "&7기본 단가: &6{base-price}골드/개"
+          - "&7내 단가:   &a{my-price}골드/개 &7({sell-stat}lvl)"
+          - "&7보유 수량: &f{my-amount}개"
+          - "&7예상 수익: &6+{expected-total}골드"
+          - ""
+          - "&e▶ 좌클릭으로 전량 판매"
+        custom-model-data: 1001
+      sell:
+        material: DIAMOND
+        name: "&b&l반짝이는 다이아"
+        custom-model-data: 1001
+        unit-price: 150
+
+    coal:
+      slot: 12
+      display:
+        material: COAL
+        name: "&f석탄"
+        lore:
+          - "&7기본 단가: &6{base-price}골드/개"
+          - "&7내 단가:   &a{my-price}골드/개"
+          - "&7보유 수량: &f{my-amount}개"
+          - "&7예상 수익: &6+{expected-total}골드"
+          - ""
+          - "&e▶ 클릭하여 전량 판매"
+      sell:
+        material: COAL
+        unit-price: 8
+
+    enhance-stone:
+      slot: 20
+      display:
+        material: PRISMARINE_SHARD
+        name: "&b강화석"
+        lore:
+          - "&7장비 강화에 사용되는 결정"
+          - ""
+          - "&7기본 단가: &6{base-price}골드/개"
+          - "&7내 단가:   &a{my-price}골드/개"
+          - "&7보유:      &f{my-amount}개"
+          - "&7예상 수익: &6+{expected-total}골드"
+          - ""
+          - "&e▶ 클릭하여 전량 판매"
+        custom-model-data: 2001
+      sell:
+        material: PRISMARINE_SHARD
+        name: "&b강화석"
+        custom-model-data: 2001
+        unit-price: 50
 
 # 광물 채굴 시 지급할 직업 경험치 (min~max 랜덤 범위)
 # key: Bukkit Material 이름 (대/소문자 무관)
