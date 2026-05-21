@@ -15,11 +15,8 @@ import java.util.logging.Level;
 
 /**
  * jobminer/messages.yml 로더.
- * <p>
  * 모든 광부 모듈 출력 메시지를 단일 파일로 관리한다.
- * 플레이스홀더 치환은 {@link #format(String, Map)} 로 처리.
- *
- * <p>플러그인 데이터 폴더의 {@code jobminer/messages.yml} 가 우선이며,
+ * 플러그인 데이터 폴더의 jobminer/messages.yml 가 우선이며,
  * 없으면 jar 내부 리소스의 기본값을 복사한다.
  */
 public final class MinerMessages {
@@ -64,9 +61,7 @@ public final class MinerMessages {
         }
     }
 
-    /**
-     * 단순 메시지 조회. 키 미존재 시 키 자체를 반환(디버깅 용).
-     */
+    /** 단순 메시지 조회. 키 미존재 시 placeholder 형태로 반환(디버깅 용). */
     public String get(String key) {
         String value = config.getString("messages." + key);
         if (value == null) {
@@ -75,9 +70,7 @@ public final class MinerMessages {
         return value != null ? value : "<missing:" + key + ">";
     }
 
-    /**
-     * {@link #get(String)} + {placeholder} 치환 + &색 코드 → § 변환.
-     */
+    /** get(key) + {placeholder} 치환 + 색코드 변환 (&  →  §). */
     public String format(String key, Map<String, String> placeholders) {
         String raw = get(key);
         if (placeholders != null && !placeholders.isEmpty()) {
