@@ -70,11 +70,11 @@ class MineSellCalculatorTest {
 
         @ParameterizedTest(name = "SELL스탯 {0} → 총 {1}골드")
         @CsvSource({
-            "0,  120.0",   // 보너스 없음
-            "1,  126.0",   // +5%
-            "2,  132.0",   // +10%
-            "10, 180.0",   // +50%
-            "20, 240.0",   // +100%
+            "0,  120.0",
+            "1,  126.0",
+            "2,  132.0",
+            "10, 180.0",
+            "20, 240.0"
         })
         void 스탯별_보너스_계산(int sellStat, double expected) {
             double result = calculator.calculateTotalPrice(Material.DIAMOND, 1, sellStat);

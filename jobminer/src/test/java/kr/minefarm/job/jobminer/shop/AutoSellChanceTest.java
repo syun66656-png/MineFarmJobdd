@@ -36,7 +36,7 @@ class AutoSellChanceTest {
             "10, 0.25",
             "25, 0.55",
             "37, 0.79",
-            "38, 0.81",  // 초과 → max에 클램핑
+            "38, 0.81"
         })
         void 스탯별_확률(int stat, double expected) {
             double actual = calcChance(BASE, PER, MAX, stat);

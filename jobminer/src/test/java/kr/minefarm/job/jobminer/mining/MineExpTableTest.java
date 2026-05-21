@@ -24,9 +24,9 @@ class MineExpTableTest {
         @CsvSource({
             "100,     100, 100",
             "10~20,    10,  20",
-            "20~10,    10,  20",   // min/max 자동 정렬
+            "20~10,    10,  20",
             "0~0,       0,   0",
-            "500~500,  500, 500",
+            "500~500,  500, 500"
         })
         void 파싱_정확성(String raw, long expectedMin, long expectedMax) {
             var range = MineExpTable.ExpRange.parse(raw);
