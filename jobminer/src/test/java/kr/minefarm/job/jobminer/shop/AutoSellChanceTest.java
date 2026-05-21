@@ -80,7 +80,7 @@ class AutoSellChanceTest {
         }
 
         @Test
-        void 100퍼센트_설정() {
+        void 퍼센트_100_설정() {
             double chance = calcChance(1.0, 0.0, 1.0, 0);
             assertEquals(1.0, chance, 0.001);
         }
