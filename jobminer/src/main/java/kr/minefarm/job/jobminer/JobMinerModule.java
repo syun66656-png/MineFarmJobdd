@@ -122,7 +122,8 @@ public final class JobMinerModule implements JobModule {
                 minerConfig,
                 context.getCore(),
                 regenBlockRegistry,
-                regenMineRewardService
+                regenMineRewardService,
+                worldGuard
         );
         minerJob.bind(context.getCore(), starterKitService, passiveEffectsService, minerSkills);
 
@@ -130,15 +131,19 @@ public final class JobMinerModule implements JobModule {
                 context.getCore(),
                 regenBlockRegistry,
                 pickaxeValidator,
-                regenMineRewardService
+                regenMineRewardService,
+                minerConfig,
+                worldGuard
         ));
         context.registerListener(minerSkills);
         context.registerListener(new RegenProtectionListener(
                 regenBlockRegistry,
                 context.getCore(),
-                pickaxeValidator
+                pickaxeValidator,
+                minerConfig,
+                worldGuard
         ));
-        context.registerListener(new RegenWandListener(regenWandService, regenBlockRegistry));
+        context.registerListener(new RegenWandListener(regenWandService, regenBlockRegistry, minerConfig, worldGuard));
         context.registerListener(new MinerWorldChangeListener(context.getCore(), passiveEffectsService));
 
         registerCommand(plugin, "광산완드", "리젠 블록 관리 완드 지급",

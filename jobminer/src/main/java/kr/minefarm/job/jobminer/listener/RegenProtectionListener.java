@@ -4,6 +4,8 @@ import kr.minefarm.job.jobcore.api.JobCoreAPI;
 import kr.minefarm.job.jobcore.domain.JobId;
 import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
+import kr.minefarm.job.jobminer.config.JobMinerConfig;
+import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import org.bukkit.block.Block;
@@ -30,6 +32,8 @@ public final class RegenProtectionListener implements Listener {
     private final RegenBlockRegistry regenBlockRegistry;
     private final JobCoreAPI core;
     private final PickaxeValidator pickaxeValidator;
+    private final JobMinerConfig config;
+    private final WorldGuardBridge worldGuard;
 
     /** 메시지 스팸 방지용 마지막 경고 시각 */
     private final Map<UUID, Long> lastWarnAt = new ConcurrentHashMap<>();
@@ -37,11 +41,15 @@ public final class RegenProtectionListener implements Listener {
     public RegenProtectionListener(
             RegenBlockRegistry regenBlockRegistry,
             JobCoreAPI core,
-            PickaxeValidator pickaxeValidator
+            PickaxeValidator pickaxeValidator,
+            JobMinerConfig config,
+            WorldGuardBridge worldGuard
     ) {
         this.regenBlockRegistry = regenBlockRegistry;
         this.core = core;
         this.pickaxeValidator = pickaxeValidator;
+        this.config = config;
+        this.worldGuard = worldGuard;
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -59,6 +67,7 @@ public final class RegenProtectionListener implements Listener {
     public void onBlockPlace(BlockPlaceEvent event) {
         Block block = event.getBlock();
         if (!regenBlockRegistry.isRegenBlock(block)) return;
+        if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) return;
         event.setCancelled(true);
         sendWarnOnce(event.getPlayer(),
                 "§c[광산] §f리젠 블록 위치에는 블록을 설치할 수 없습니다.");

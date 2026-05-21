@@ -1,5 +1,23 @@
 # JobMiner 전용 설정 (JobCore와 분리)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# WorldGuard 통합 (광산 시스템 전체에 적용)
+# allowed-regions: 광산 시스템이 작동할 WorldGuard 리전(region) ID 목록.
+#   비어 있으면 제한 없음 → 어디서나 등록·채굴·드롭·스킬·패시브 모두 작동.
+#   목록이 있으면 해당 리전 안에서만 작동:
+#     - /광산완드 좌/우클릭으로 리젠 블록 등록·해제 가능
+#     - 등록된 리젠 블록 채굴 시 보상 지급 (리전 밖이면 일반 블록처럼 취급)
+#     - 다이너마이트 폭발은 리전 안 광석에만 보상 적용
+#     - 광부 패시브(가벼운 발걸음 Speed) 효과 유지
+#   WorldGuard 미설치 시: 검사 비활성 (목록이 있어도 무시되고 모든 곳에서 작동).
+# ─────────────────────────────────────────────────────────────────────────────
+worldguard:
+  allowed-regions: []
+  # 예시:
+  # allowed-regions:
+  #   - "mining_zone"
+  #   - "deep_mine"
+
 # 광부 다이너마이트: 우클릭 시 TNT 소환 → fuse-ticks 후 폭발 (지형 파괴 없음, 리젠 광석만 보상)
 dynamite:
   enabled: true
@@ -82,15 +100,9 @@ starter-kit:
 
 # 접속·직업 선택·스탯 투자 후 DB 프로필 반영 시 적용 (메인 스레드)
 miner-passives:
-  # 패시브(가벼운 발걸음 등)가 적용될 WorldGuard 리전(region) ID 목록
-  # 비어 있으면 제한 없음 → 광부 직업이면 어디서나 효과 적용.
-  # 목록이 있으면 해당 리전 안에 있을 때만 효과 유지. 리전을 벗어나면 즉시 제거됨.
-  # WorldGuard 미설치 시: 검사 비활성 (목록이 있어도 무시되고 모든 곳에서 적용).
+  # (Legacy) 패시브 전용 리전 — 상단 worldguard.allowed-regions 가 비어 있을 때만 사용됨.
+  # 보통은 상단 worldguard.allowed-regions 하나로 통합 관리하는 것을 권장.
   allowed-regions: []
-  # 예시:
-  # allowed-regions:
-  #   - "mining_zone"
-  #   - "deep_mine"
   light-footsteps:
     enabled: true
     # amplifier = min(cap, base-amplifier + SKILL스탯×per-skill-level + 직업레벨×per-job-level), 0=이속 I

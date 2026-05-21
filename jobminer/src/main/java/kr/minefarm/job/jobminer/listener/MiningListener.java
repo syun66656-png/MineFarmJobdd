@@ -6,6 +6,8 @@ import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.mining.RegenMineRewardService;
+import kr.minefarm.job.jobminer.config.JobMinerConfig;
+import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
 import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -27,23 +29,31 @@ public final class MiningListener implements Listener {
     private final RegenBlockRegistry regenBlockRegistry;
     private final PickaxeValidator pickaxeValidator;
     private final RegenMineRewardService rewardService;
+    private final JobMinerConfig config;
+    private final WorldGuardBridge worldGuard;
 
     public MiningListener(
             JobCoreAPI core,
             RegenBlockRegistry regenBlockRegistry,
             PickaxeValidator pickaxeValidator,
-            RegenMineRewardService rewardService
+            RegenMineRewardService rewardService,
+            JobMinerConfig config,
+            WorldGuardBridge worldGuard
     ) {
         this.core = core;
         this.regenBlockRegistry = regenBlockRegistry;
         this.pickaxeValidator = pickaxeValidator;
         this.rewardService = rewardService;
+        this.config = config;
+        this.worldGuard = worldGuard;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
         if (!regenBlockRegistry.isRegenBlock(block)) return;
+        // ★ 리전 밖이면 보상 지급하지 않음 (등록은 되어 있더라도)
+        if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) return;
 
         Player player = event.getPlayer();
         // 방어적 체크: 캐시 미스(예: 초기화 경쟁) 또는 비광부 처리

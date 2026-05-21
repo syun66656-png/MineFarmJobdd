@@ -2,6 +2,8 @@ package kr.minefarm.job.jobminer.listener;
 
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
+import kr.minefarm.job.jobminer.config.JobMinerConfig;
+import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
 import kr.minefarm.job.jobminer.tool.RegenWandService;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -20,10 +22,19 @@ public final class RegenWandListener implements Listener {
 
     private final RegenWandService wandService;
     private final RegenBlockRegistry regenBlockRegistry;
+    private final JobMinerConfig config;
+    private final WorldGuardBridge worldGuard;
 
-    public RegenWandListener(RegenWandService wandService, RegenBlockRegistry regenBlockRegistry) {
+    public RegenWandListener(
+            RegenWandService wandService,
+            RegenBlockRegistry regenBlockRegistry,
+            JobMinerConfig config,
+            WorldGuardBridge worldGuard
+    ) {
         this.wandService = wandService;
         this.regenBlockRegistry = regenBlockRegistry;
+        this.config = config;
+        this.worldGuard = worldGuard;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -48,6 +59,12 @@ public final class RegenWandListener implements Listener {
         }
 
         event.setCancelled(true);
+
+        // ★ WorldGuard 리전 검사 — allowed-regions가 설정되어 있으면 그 안에서만 등록 가능
+        if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) {
+            player.sendMessage("§c[광산] §f이 위치는 광산 지역(WorldGuard)이 아니므로 등록/해제할 수 없습니다.");
+            return;
+        }
 
         if (action == Action.LEFT_CLICK_BLOCK) {
             if (regenBlockRegistry.isRegenBlock(block)) {

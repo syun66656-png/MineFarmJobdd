@@ -7,6 +7,7 @@ import kr.minefarm.job.jobminer.config.JobMinerConfig;
 import kr.minefarm.job.jobminer.mining.MineOreMaterials;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
+import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
 import kr.minefarm.job.jobminer.mining.RegenMineRewardService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -56,6 +57,7 @@ public final class MinerSkills implements Listener {
     private final JobCoreAPI core;
     private final RegenBlockRegistry regenBlockRegistry;
     private final RegenMineRewardService rewardService;
+    private final WorldGuardBridge worldGuard;
     private final NamespacedKey dynamiteKey;
     private final NamespacedKey dynamiteOwnerKey;
     private final NamespacedKey overclockHasteKey;
@@ -69,13 +71,15 @@ public final class MinerSkills implements Listener {
             JobMinerConfig config,
             JobCoreAPI core,
             RegenBlockRegistry regenBlockRegistry,
-            RegenMineRewardService rewardService
+            RegenMineRewardService rewardService,
+            WorldGuardBridge worldGuard
     ) {
         this.plugin = plugin;
         this.config = config;
         this.core = core;
         this.regenBlockRegistry = regenBlockRegistry;
         this.rewardService = rewardService;
+        this.worldGuard = worldGuard;
         this.dynamiteKey = new NamespacedKey(plugin, "minefarm_dynamite");
         this.dynamiteOwnerKey = new NamespacedKey(plugin, "dynamite_owner");
         this.overclockHasteKey = new NamespacedKey(plugin, "miner_overclock_haste");
@@ -162,6 +166,10 @@ public final class MinerSkills implements Listener {
             if (!regenBlockRegistry.isRegenBlock(block)) {
                 continue;
             }
+            // ★ 리전 밖 블록은 폭발 보상 대상 아님
+            if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) {
+                continue;
+            }
             if (!MineOreMaterials.isOre(block.getType())) {
                 continue;
             }
@@ -220,6 +228,12 @@ public final class MinerSkills implements Listener {
         Location spawnLoc = resolveSpawnLocation(player);
         if (spawnLoc == null || spawnLoc.getWorld() == null) {
             return false;
+        }
+        // ★ 다이너마이트는 광산 지역(리전 안)에서만 투척 가능
+        if (!worldGuard.isInAnyRegion(spawnLoc, config.getMineAllowedRegions())) {
+            player.sendMessage("§c[광산] §f광산 지역(WorldGuard)에서만 다이너마이트를 사용할 수 있습니다.");
+            event.setCancelled(true);
+            return true;
         }
 
         event.setCancelled(true);
