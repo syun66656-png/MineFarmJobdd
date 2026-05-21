@@ -23,14 +23,11 @@ import java.util.stream.Collectors;
 public final class JobMinerConfig {
 
     private final FileConfiguration config;
-    private final Map<Material, Integer> guaranteedDrops;
-    private final List<SpecialDrop> specialDrops;
     private final Map<Material, List<OreDrop>> oreDrops;
     private final List<CommonDrop> commonDrops;
     private final java.util.Set<String> passiveAllowedRegions;
     private final java.util.Set<String> mineAllowedRegions;
     private final java.util.List<ShopGuiItem> shopGuiItems;
-    private final Map<Material, Double> shopPrices;
     private final MineExpTable mineExpTable;
     private final boolean dynamiteEnabled;
     private final Material dynamiteMaterial;
@@ -52,14 +49,11 @@ public final class JobMinerConfig {
     public JobMinerConfig(JavaPlugin plugin) {
         File file = new File(plugin.getDataFolder(), JobMinerModule.MODULE_ID + "/config.yml");
         this.config = YamlConfiguration.loadConfiguration(file);
-        this.guaranteedDrops = loadGuaranteedDrops();
-        this.specialDrops = loadSpecialDrops();
         this.oreDrops = loadOreDrops();
         this.commonDrops = loadCommonDrops();
         this.passiveAllowedRegions = loadPassiveAllowedRegions();
         this.mineAllowedRegions = loadMineAllowedRegions();
         this.shopGuiItems = loadShopGuiItems();
-        this.shopPrices = loadShopPrices();
         this.mineExpTable = loadMineExpTable();
         this.dynamiteEnabled = config.getBoolean("dynamite.enabled", false);
         this.dynamiteMaterial = parseMaterial(config.getString("dynamite.material", "FIRE_CHARGE"));
@@ -149,21 +143,9 @@ public final class JobMinerConfig {
         return config.getDouble("sell.bonus-multiplier", 0.05D);
     }
 
-    public double getShopBasePrice(Material material) {
-        return shopPrices.getOrDefault(material, 0D);
-    }
-
-    /** 가격이 설정된 머티리얼 목록 (상점 GUI 카탈로그용). */
-    public java.util.List<Material> getShopPricedMaterials() {
-        return shopPrices.entrySet().stream()
-                .filter(e -> e.getValue() > 0)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-    }
-
-    /** 상점 GUI 제목 템플릿 */
+    /** 상점 GUI 제목 */
     public String getShopGuiTitle() {
-        return config.getString("shop-gui.title", "&6&l광부 상점 &8— &e{page}&8/&f{total_pages}");
+        return config.getString("shop-gui.title", "&6&l광부 상점");
     }
 
     public boolean isShopNotifyOnSell() {
@@ -188,10 +170,6 @@ public final class JobMinerConfig {
     public String getShopVaultErrorMessage() {
         return config.getString("shop-gui.vault-error-message",
                 "&c입금 오류가 발생했습니다. 관리자에게 문의하세요.");
-    }
-
-    public Map<Material, Integer> getGuaranteedDrops() {
-        return guaranteedDrops;
     }
 
     /** 광물별 지정 드롭 (블록 Material에 따른 드롭 목록) */
@@ -289,13 +267,6 @@ public final class JobMinerConfig {
         return mineAllowedRegions;
     }
 
-    public List<SpecialDrop> getSpecialDrops() {
-        return specialDrops;
-    }
-
-    public record SpecialDrop(Material material, double chance, int amount) {
-    }
-
     /**
      * 광물 종류별 지정 드롭.
      * customModelData: null이면 미적용. shopPrice: 0이면 광부상점에서 미판매.
@@ -349,21 +320,6 @@ public final class JobMinerConfig {
                 Integer customModelData,
                 double unitPrice
         ) {}
-    }
-
-    private Map<Material, Integer> loadGuaranteedDrops() {
-        ConfigurationSection section = config.getConfigurationSection("guaranteed-drops");
-        if (section == null) {
-            return Map.of();
-        }
-        Map<Material, Integer> map = new EnumMap<>(Material.class);
-        for (String key : section.getKeys(false)) {
-            Material material = parseMaterial(key);
-            if (material != null) {
-                map.put(material, Math.max(1, section.getInt(key, 1)));
-            }
-        }
-        return Collections.unmodifiableMap(map);
     }
 
     private Map<Material, List<OreDrop>> loadOreDrops() {
@@ -506,45 +462,6 @@ public final class JobMinerConfig {
 
     public List<String> getShopGuiLayoutLore(String key) {
         return config.getStringList("shop-gui.layout." + key + ".lore");
-    }
-
-    private List<SpecialDrop> loadSpecialDrops() {
-        ConfigurationSection section = config.getConfigurationSection("special-drops");
-        if (section == null) {
-            return List.of();
-        }
-        List<SpecialDrop> list = new ArrayList<>();
-        for (String key : section.getKeys(false)) {
-            Material material = parseMaterial(key);
-            if (material == null) {
-                continue;
-            }
-            ConfigurationSection drop = section.getConfigurationSection(key);
-            if (drop == null) {
-                continue;
-            }
-            list.add(new SpecialDrop(
-                    material,
-                    drop.getDouble("chance", 0D),
-                    Math.max(1, drop.getInt("amount", 1))
-            ));
-        }
-        return List.copyOf(list);
-    }
-
-    private Map<Material, Double> loadShopPrices() {
-        ConfigurationSection section = config.getConfigurationSection("shop-prices");
-        if (section == null) {
-            return Map.of();
-        }
-        Map<Material, Double> map = new EnumMap<>(Material.class);
-        for (String key : section.getKeys(false)) {
-            Material material = parseMaterial(key);
-            if (material != null) {
-                map.put(material, section.getDouble(key, 0D));
-            }
-        }
-        return Collections.unmodifiableMap(map);
     }
 
     /**

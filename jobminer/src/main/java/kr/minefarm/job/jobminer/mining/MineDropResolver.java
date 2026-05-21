@@ -9,7 +9,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -46,20 +45,6 @@ public final class MineDropResolver {
                 items.add(buildCommonDrop(drop));
             }
         }
-
-        // ③ (호환) 광물 무관 guaranteed-drops
-        for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
-            if (entry.getValue() > 0) {
-                items.add(new ItemStack(entry.getKey(), entry.getValue()));
-            }
-        }
-
-        // ④ (호환) 광물 무관 special-drops
-        for (JobMinerConfig.SpecialDrop special : config.getSpecialDrops()) {
-            if (ThreadLocalRandom.current().nextDouble() < special.chance()) {
-                items.add(new ItemStack(special.material(), special.amount()));
-            }
-        }
         return items;
     }
 
@@ -71,11 +56,6 @@ public final class MineDropResolver {
         List<ItemStack> items = new ArrayList<>();
         for (JobMinerConfig.OreDrop drop : config.getOreDropsFor(blockMaterial)) {
             items.add(buildOreDrop(drop));
-        }
-        for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
-            if (entry.getValue() > 0) {
-                items.add(new ItemStack(entry.getKey(), entry.getValue()));
-            }
         }
         return items;
     }

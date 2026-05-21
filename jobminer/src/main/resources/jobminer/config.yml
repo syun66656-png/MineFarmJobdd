@@ -140,26 +140,6 @@ sell:
   # total_price = base + (base × bonus-multiplier × sell 스탯 레벨)
   bonus-multiplier: 0.05
 
-# Material 이름: 기본 단가 (1개당)
-shop-prices:
-  COAL: 8
-  RAW_IRON: 15
-  IRON_ORE: 12
-  RAW_GOLD: 25
-  GOLD_ORE: 20
-  DIAMOND: 120
-  EMERALD: 80
-  LAPIS_LAZULI: 6
-  REDSTONE: 4
-  COPPER_ORE: 10
-  DEEPSLATE_COAL_ORE: 10
-  DEEPSLATE_IRON_ORE: 14
-  DEEPSLATE_GOLD_ORE: 22
-  DEEPSLATE_DIAMOND_ORE: 130
-  DEEPSLATE_REDSTONE_ORE: 5
-  DEEPSLATE_LAPIS_ORE: 7
-  DEEPSLATE_COPPER_ORE: 11
-
 # ─────────────────────────────────────────────────────────────────────────────
 # 광물별 지정 드롭 (채굴된 블록 종류에 따라 다른 드롭 100% 지급)
 # 형식:
@@ -170,7 +150,7 @@ shop-prices:
 #         name: "<&색 이름>"           # 선택
 #         lore: ["<&색 설명>"]         # 선택
 #         custom-model-data: <번호>    # 선택 (리소스팩 모델 연동)
-#         shop-price: <단가>           # 선택 — 광부상점 단가 (없거나 0이면 shop-prices의 Material 단가 fallback)
+#         shop-price: <단가>           # 선택 — 자동판매(AutoSell)용 단가 (광부상점 GUI는 shop-gui.items 정의를 우선 사용)
 #
 # 광부상점 매칭은 (material + custom-model-data + name) 기준.
 # 즉 동일 Material이라도 custom-model-data 또는 name이 다르면 별개 아이템.
@@ -271,11 +251,7 @@ common-drops:
 # ─────────────────────────────────────────────────────────────────────────────
 # (Deprecated, 호환 유지) 광물 무관 100% 드롭 — 가능하면 ore-drops 사용 권장
 # ─────────────────────────────────────────────────────────────────────────────
-guaranteed-drops: {}
-
 # (Deprecated, 호환 유지) 광물 무관 확률 드롭 — 가능하면 common-drops 사용 권장
-special-drops: {}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # 광부 상점 GUI (/광부상점)
 # ─────────────────────────────────────────────────────────────────────────────
