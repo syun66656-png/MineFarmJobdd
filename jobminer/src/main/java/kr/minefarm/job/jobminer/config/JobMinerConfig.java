@@ -1,6 +1,7 @@
 package kr.minefarm.job.jobminer.config;
 
 import kr.minefarm.job.jobminer.JobMinerModule;
+import kr.minefarm.job.jobminer.mining.MineExpTable;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -14,6 +15,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * plugins/MineFarmJob/jobminer/config.yml
@@ -24,7 +26,7 @@ public final class JobMinerConfig {
     private final Map<Material, Integer> guaranteedDrops;
     private final List<SpecialDrop> specialDrops;
     private final Map<Material, Double> shopPrices;
-    private final kr.minefarm.job.jobminer.mining.MineExpTable mineExpTable;
+    private final MineExpTable mineExpTable;
     private final boolean dynamiteEnabled;
     private final Material dynamiteMaterial;
     private final String dynamiteNameKeyword;
@@ -133,7 +135,7 @@ public final class JobMinerConfig {
         return shopPrices.entrySet().stream()
                 .filter(e -> e.getValue() > 0)
                 .map(Map.Entry::getKey)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
     }
 
     /** 상점 GUI 제목 템플릿 */
@@ -234,29 +236,27 @@ public final class JobMinerConfig {
      * mine-exp 섹션을 읽어 광물별 경험치 테이블을 구성한다.
      * 값 형식: "20~35" (범위) 또는 "500" (고정값).
      */
-    private kr.minefarm.job.jobminer.mining.MineExpTable loadMineExpTable() {
+    private MineExpTable loadMineExpTable() {
         ConfigurationSection section = config.getConfigurationSection("mine-exp");
         if (section == null) {
-            return new kr.minefarm.job.jobminer.mining.MineExpTable(new EnumMap<>(Material.class));
+            return new MineExpTable(new EnumMap<>(Material.class));
         }
-        Map<Material, kr.minefarm.job.jobminer.mining.MineExpTable.ExpRange> map = new EnumMap<>(Material.class);
+        Map<Material, MineExpTable.ExpRange> map = new EnumMap<>(Material.class);
         for (String key : section.getKeys(false)) {
             Material material = parseMaterial(key);
             if (material == null) continue;
-            // 숫자 또는 "min~max" 형태 모두 허용
             String raw = section.getString(key, "0");
             if (raw == null) raw = String.valueOf(section.getLong(key, 0L));
-            kr.minefarm.job.jobminer.mining.MineExpTable.ExpRange range =
-                    kr.minefarm.job.jobminer.mining.MineExpTable.ExpRange.parse(raw);
+            MineExpTable.ExpRange range = MineExpTable.ExpRange.parse(raw);
             if (range.hasExp()) {
                 map.put(material, range);
             }
         }
-        return new kr.minefarm.job.jobminer.mining.MineExpTable(Collections.unmodifiableMap(map));
+        return new MineExpTable(Collections.unmodifiableMap(map));
     }
 
     /** 광물별 채굴 경험치 테이블 */
-    public kr.minefarm.job.jobminer.mining.MineExpTable getMineExpTable() {
+    public MineExpTable getMineExpTable() {
         return mineExpTable;
     }
 

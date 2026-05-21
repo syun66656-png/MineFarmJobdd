@@ -21,7 +21,10 @@ import kr.minefarm.job.jobcore.listener.ExperienceListener;
 import kr.minefarm.job.jobcore.listener.GuiListener;
 import kr.minefarm.job.jobcore.listener.PlayerConnectionListener;
 import kr.minefarm.job.jobcore.registry.JobModuleLoader;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.event.HandlerList;
 import kr.minefarm.job.jobcore.service.RankingService;
 import kr.minefarm.job.jobcore.service.StatService;
@@ -36,7 +39,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -78,8 +83,7 @@ public final class JobCoreBootstrap {
     private boolean modulesLoaded;
 
     /** reload 시 unregister 를 위해 보관하는 커맨드 목록 */
-    private final java.util.Map<String, org.bukkit.command.PluginCommand> registeredCommands
-            = new java.util.LinkedHashMap<>();
+    private final Map<String, PluginCommand> registeredCommands = new LinkedHashMap<>();
 
     public JobCoreBootstrap(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -291,11 +295,11 @@ public final class JobCoreBootstrap {
 
     private void registerAndTrack(
             String name, String description,
-            org.bukkit.command.CommandExecutor executor,
-            org.bukkit.command.TabCompleter tab,
+            CommandExecutor executor,
+            TabCompleter tab,
             String permission
     ) {
-        org.bukkit.command.PluginCommand cmd =
+        PluginCommand cmd =
                 PaperCommandRegistration.register(plugin, name, description, executor, tab, permission);
         if (cmd != null) {
             registeredCommands.put(name, cmd);

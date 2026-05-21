@@ -6,31 +6,37 @@ import kr.minefarm.job.jobcore.api.JobModule;
 import kr.minefarm.job.jobcore.api.PaperCommandRegistration;
 import kr.minefarm.job.jobminer.autosell.AutoSellProcessor;
 import kr.minefarm.job.jobminer.command.MineResetCommand;
+import kr.minefarm.job.jobminer.command.MinerShopCommand;
 import kr.minefarm.job.jobminer.command.RegenWandCommand;
 import kr.minefarm.job.jobminer.config.JobMinerConfig;
 import kr.minefarm.job.jobminer.integration.VaultEconomyBridge;
 import kr.minefarm.job.jobminer.kit.StarterKitService;
-import kr.minefarm.job.jobminer.passive.MinerPassiveEffectsService;
 import kr.minefarm.job.jobminer.listener.MiningListener;
 import kr.minefarm.job.jobminer.listener.RegenProtectionListener;
 import kr.minefarm.job.jobminer.listener.RegenWandListener;
-import kr.minefarm.job.jobminer.skill.MinerSkills;
 import kr.minefarm.job.jobminer.mining.MineDropResolver;
-import kr.minefarm.job.jobminer.mining.RegenMineRewardService;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.mining.RegenBlockStorage;
+import kr.minefarm.job.jobminer.mining.RegenMineRewardService;
 import kr.minefarm.job.jobminer.mining.RegenRestoreService;
+import kr.minefarm.job.jobminer.passive.MinerPassiveEffectsService;
 import kr.minefarm.job.jobminer.shop.MineSellCalculator;
 import kr.minefarm.job.jobminer.shop.MinerShopService;
-import kr.minefarm.job.jobminer.command.MinerShopCommand;
+import kr.minefarm.job.jobminer.skill.MinerSkills;
 import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import kr.minefarm.job.jobminer.tool.RegenWandService;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 광부 직업 모듈. JobCore API만 사용하며 Core 내부 패키지에 의존하지 않는다.
@@ -47,14 +53,13 @@ public final class JobMinerModule implements JobModule {
     private RegenRestoreService regenRestoreService;
     private VaultEconomyBridge vaultEconomy;
     private MinerSkills minerSkills;
-    private JavaPlugin hostPlugin; // onEnable에서 캡처
+    private JavaPlugin hostPlugin;
 
     /** 5초마다 dirty 확인 후 비동기 저장 */
-    private org.bukkit.scheduler.BukkitTask saveTask;
+    private BukkitTask saveTask;
 
     /** reload/disable 시 해제할 커맨드 목록 */
-    private final java.util.Map<String, org.bukkit.command.PluginCommand> registeredCommands
-            = new java.util.LinkedHashMap<>();
+    private final Map<String, PluginCommand> registeredCommands = new LinkedHashMap<>();
 
     @Override
     public String getModuleId() {
@@ -228,11 +233,11 @@ public final class JobMinerModule implements JobModule {
             JavaPlugin plugin,
             String name,
             String description,
-            org.bukkit.command.CommandExecutor executor,
-            org.bukkit.command.TabCompleter tabCompleter,
+            CommandExecutor executor,
+            TabCompleter tabCompleter,
             String permission
     ) {
-        org.bukkit.command.PluginCommand cmd =
+        PluginCommand cmd =
                 PaperCommandRegistration.register(plugin, name, description, executor, tabCompleter, permission);
         if (cmd != null) {
             registeredCommands.put(name, cmd);
