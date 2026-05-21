@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>MineFarmJob Parent</name>
-    <description>MineFarm 직업 시스템 — 멀티 모듈 (JobCore + JobMiner, …)</description>
+    <description>MineFarm 직업 시스템 — 멀티 모듈 (JobCore + JobMiner)</description>
 
     <modules>
         <module>jobcore</module>
@@ -19,7 +19,11 @@
 
     <properties>
         <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <paper.version>1.21.4-R0.1-SNAPSHOT</paper.version>
         <placeholderapi.version>2.11.6</placeholderapi.version>
         <hikaricp.version>6.2.1</hikaricp.version>
@@ -57,7 +61,6 @@
                 <artifactId>HikariCP</artifactId>
                 <version>${hikaricp.version}</version>
             </dependency>
-            <!-- ── 테스트 ── -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
@@ -98,7 +101,13 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.13.0</version>
                     <configuration>
-                        <release>${java.version}</release>
+                        <source>21</source>
+                        <target>21</target>
+                        <release>21</release>
+                        <encoding>UTF-8</encoding>
+                        <compilerArgs>
+                            <arg>-parameters</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
                 <plugin>
