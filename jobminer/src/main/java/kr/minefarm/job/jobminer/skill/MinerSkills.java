@@ -18,6 +18,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Entity;
@@ -26,8 +27,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
@@ -205,68 +204,66 @@ public final class MinerSkills implements Listener {
     }
 
     /**
-     * 다이너마이트 — 진짜 TNT가 아닌 '가짜 TNT'.
-     * TNTPrimed 엔티티는 시각 효과/사운드만 담당.
-     * 폭발 시점에 (radius×2+1)³ 정육면체 안의 리젠 블록을 즉시 채굴 처리.
-     * 진짜 폭발의 부산물(블록 파괴/데미지/넉백)은 모두 제거.
+     * 다이너마이트 폭발 처리 — fuse 끝 시점에 직접 호출 (BukkitRunnable).
+     * EntityExplodeEvent 에 의존하지 않음 (yield 와 무관하게 동작 보장).
+     *
+     * 순서:
+     *   ① TNT 엔티티 remove + 추적 해제
+     *   ② 시각/사운드 효과 (폭발 사운드 + 파티클)
+     *   ③ 위치 기준 size×size×size 정육면체 내 리젠 광물 찾아 본인이 캔 것처럼 처리
+     *      (block.setType(AIR) + rewardService.deliverRewards — cobblestone 대체,
+     *       drops, 자동판매, 경험치, regen 예약까지 정상 흐름)
      */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void onExplode(EntityExplodeEvent event) {
-        if (!(event.getEntity() instanceof TNTPrimed tnt)) return;
-        if (!tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) return;
-
-        // 추적에서 제거 (이미 폭발했으므로)
-        activeDynamites.remove(tnt.getUniqueId());
-
-        // 진짜 폭발 효과는 모두 차단 (시각/사운드는 TNT 엔티티가 알아서 표시)
-        event.blockList().clear();
-
-        Player player = resolveDynamiteOwner(tnt);
-        PlayerJobProfile profile = player != null
-                ? core.getPlayerProfiles().getCached(player.getUniqueId())
-                : null;
-        if (player == null || profile == null || profile.getJobId() != JobId.MINER) {
+    private void handleDynamiteDetonation(UUID tntId, UUID playerId) {
+        Entity entity = plugin.getServer().getEntity(tntId);
+        activeDynamites.remove(tntId);
+        if (entity == null || entity.isDead() || !entity.isValid()) {
             return;
         }
-
-        // 폭발 위치 기준 정육면체 스캔 (기본 radius=1 → 3×3×3)
-        Location center = event.getLocation();
-        World world = center.getWorld();
+        Location loc = entity.getLocation();
+        World world = loc.getWorld();
+        entity.remove();
         if (world == null) return;
-        int radius = Math.max(0, config.getDynamiteExplosionRadius());
-        int cx = center.getBlockX();
-        int cy = center.getBlockY();
-        int cz = center.getBlockZ();
 
-        // 폭발과 동시에 즉시 채굴 처리 (이미 메인 스레드)
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dy = -radius; dy <= radius; dy++) {
-                for (int dz = -radius; dz <= radius; dz++) {
+        // 시각/사운드 효과 (실제 폭발은 일어나지 않으므로 직접 재생)
+        try {
+            world.playSound(loc, "minecraft:entity.generic.explode", 4.0f, 1.0f);
+        } catch (Throwable ignored) {}
+        try {
+            Particle p;
+            try { p = Particle.valueOf("EXPLOSION_EMITTER"); }
+            catch (Throwable ignored) { p = Particle.valueOf("EXPLOSION"); }
+            world.spawnParticle(p, loc, 1);
+        } catch (Throwable ignored) {}
+
+        // 플레이어/프로필 검증
+        Player player = plugin.getServer().getPlayer(playerId);
+        if (player == null || !player.isOnline()) return;
+        PlayerJobProfile profile = core.getPlayerProfiles().getCached(playerId);
+        if (profile == null || profile.getJobId() != JobId.MINER) return;
+
+        // size×size×size 정육면체 스캔 (기본 4 → 4×4×4 = 64 블록)
+        int size = Math.max(1, config.getDynamiteExplosionSize());
+        int halfDown = size / 2;
+        int halfUp = size - halfDown;
+        int cx = loc.getBlockX();
+        int cy = loc.getBlockY();
+        int cz = loc.getBlockZ();
+        for (int dx = -halfDown; dx < halfUp; dx++) {
+            for (int dy = -halfDown; dy < halfUp; dy++) {
+                for (int dz = -halfDown; dz < halfUp; dz++) {
                     Block block = world.getBlockAt(cx + dx, cy + dy, cz + dz);
                     if (!regenBlockRegistry.isRegenBlock(block)) continue;
                     if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) continue;
                     if (!MineOreMaterials.isOre(block.getType())) continue;
                     RegenBlockEntry entry = regenBlockRegistry.getEntry(block);
                     if (entry == null) continue;
-                    // 채굴 처리 — 즉시 air 로 + 보상 지급 (regen 서비스가 cobblestone 으로 대체 후 복구)
+                    // 본인이 캔 것처럼 처리 — deliverRewards 가 cobblestone 대체 + regen 예약까지 다 함
                     block.setType(Material.AIR, false);
                     rewardService.deliverRewards(player, profile, block, entry);
                 }
             }
         }
-    }
-
-    /**
-     * 다이너마이트로 인한 데미지/넉백 제거.
-     * config.dynamite.disable-knockback=true 일 때 EntityDamageByEntityEvent 를 cancel.
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onDynamiteDamage(EntityDamageByEntityEvent event) {
-        if (!config.isDynamiteDisableKnockback()) return;
-        if (!(event.getDamager() instanceof TNTPrimed tnt)) return;
-        if (!tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) return;
-        // 데미지 + 넉백 모두 제거 (cancel 하면 둘 다 안 적용됨)
-        event.setCancelled(true);
     }
 
     @EventHandler
@@ -313,14 +310,22 @@ public final class MinerSkills implements Listener {
             t.setSource(player);
             t.getPersistentDataContainer().set(dynamiteKey, PersistentDataType.BYTE, (byte) 1);
             t.getPersistentDataContainer().set(dynamiteOwnerKey, PersistentDataType.STRING, player.getUniqueId().toString());
-            // 제자리에 그대로 — velocity 0 (시각 효과 = 깜빡임/fuse 모션은 TNT 엔티티 기본 동작)
+            // 제자리에 그대로 — velocity 0. fuse 동안 깜빡임/불꽃 모션은 TNT 엔티티 기본 동작.
             t.setVelocity(new Vector(0, 0, 0));
-            // '가짜 TNT' — 진짜 폭발 효과 무력화 (시각/사운드만 유지)
-            t.setYield(0.0f);          // 폭발 반경 0 → 데미지/블록파괴 없음
-            t.setIsIncendiary(false);  // 불 안 붙음
+            // 불 점화만 비활성화 (yield 는 건드리지 않음 — EntityExplodeEvent 의존 안 하므로 무관)
+            t.setIsIncendiary(false);
         });
         // 활성 TNT 추적 — shutdown/오류 시 안전 cleanup
-        activeDynamites.add(primed.getUniqueId());
+        UUID tntId = primed.getUniqueId();
+        activeDynamites.add(tntId);
+
+        // ★ fuse 끝 시점에 우리가 직접 처리 — EntityExplodeEvent 의존 X
+        //   TNT 자체 폭발 직전(fuse-1)에 제거하여 진짜 폭발 부산물 차단.
+        UUID playerId = player.getUniqueId();
+        int fuseTicks = Math.max(1, config.getDynamiteFuseTicks() - 1);
+        plugin.getServer().getScheduler().runTaskLater(plugin,
+                () -> handleDynamiteDetonation(tntId, playerId),
+                fuseTicks);
 
         // SKILL 스탯으로 쿨다운 감소
         int skillLevel = profile.getStatLevel(StatType.SKILL);

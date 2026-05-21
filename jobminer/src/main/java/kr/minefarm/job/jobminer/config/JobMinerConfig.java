@@ -499,14 +499,18 @@ public final class JobMinerConfig {
         return config.getInt("dynamite.unlock-level", 30);
     }
 
-    /** 다이너마이트 폭발 반경 (블록 단위, 기본 4) — blockList 의존 없이 직접 스캔 */
-    public int getDynamiteExplosionRadius() {
-        return config.getInt("dynamite.explosion-radius", 1);
-    }
-
-    /** 다이너마이트 폭발 시 플레이어/엔티티 데미지 및 넉백 제거 (기본 true) */
-    public boolean isDynamiteDisableKnockback() {
-        return config.getBoolean("dynamite.disable-knockback", true);
+    /**
+     * 다이너마이트 폭발 한 변 크기 (블록 수, 기본 4 → 4×4×4 = 64 블록).
+     * 구 키 explosion-radius (반경) 도 호환: r → size = r*2+1.
+     */
+    public int getDynamiteExplosionSize() {
+        if (config.contains("dynamite.explosion-size")) {
+            return Math.max(1, config.getInt("dynamite.explosion-size", 4));
+        }
+        if (config.contains("dynamite.explosion-radius")) {
+            return Math.max(1, config.getInt("dynamite.explosion-radius", 1) * 2 + 1);
+        }
+        return 4;
     }
 
     /** SKILL 스탯 1레벨당 쿨다운 감소율 (0.0~1.0) */
