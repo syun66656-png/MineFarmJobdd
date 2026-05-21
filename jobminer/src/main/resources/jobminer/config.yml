@@ -18,21 +18,22 @@ worldguard:
   #   - "mining_zone"
   #   - "deep_mine"
 
-# 광부 다이너마이트: 우클릭 시 TNT 소환 → fuse-ticks 후 폭발 (지형 파괴 없음, 리젠 광석만 보상)
+# ─────────────────────────────────────────────────────────────────────────────
+# 광부 스킬 — 광부 곡괭이가 트리거 아이템 (allowed_pickaxe_keywords 매칭)
+#   시프트 + 우클릭 → 다이너마이트
+#   일반 우클릭     → 오버클럭
+# 두 스킬 모두 worldguard.allowed-regions 안에서만 발동.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 다이너마이트: TNT 소환 → fuse-ticks 후 폭발 (지형 파괴 없음, 리젠 광석만 보상)
 dynamite:
   enabled: true
-  material: FIRE_CHARGE
-  # 비우면 표시 이름 검사 생략 (material만 일치하면 됨)
-  name-keyword: ""
   fuse-ticks: 50
-  consume-item: true
   cooldown-ticks: 100
 
-# 오버클럭: 설정 아이템 우클릭 시 Haste, 액션바로 남은 시간 표시
+# 오버클럭: Haste 효과 부여, 액션바로 남은 시간 표시
 overclock:
   enabled: true
-  material: CLOCK
-  name-keyword: ""
   cooldown-ticks: 600
   duration-ticks: 200
   min-job-level: 1

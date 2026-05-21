@@ -30,14 +30,9 @@ public final class JobMinerConfig {
     private final java.util.List<ShopGuiItem> shopGuiItems;
     private final MineExpTable mineExpTable;
     private final boolean dynamiteEnabled;
-    private final Material dynamiteMaterial;
-    private final String dynamiteNameKeyword;
     private final int dynamiteFuseTicks;
-    private final boolean dynamiteConsumeItem;
     private final int dynamiteCooldownTicks;
     private final boolean overclockEnabled;
-    private final Material overclockMaterial;
-    private final String overclockNameKeyword;
     private final int overclockCooldownTicks;
     private final int overclockDurationTicks;
     private final int overclockMinJobLevel;
@@ -56,15 +51,10 @@ public final class JobMinerConfig {
         this.shopGuiItems = loadShopGuiItems();
         this.mineExpTable = loadMineExpTable();
         this.dynamiteEnabled = config.getBoolean("dynamite.enabled", false);
-        this.dynamiteMaterial = parseMaterial(config.getString("dynamite.material", "FIRE_CHARGE"));
-        this.dynamiteNameKeyword = config.getString("dynamite.name-keyword", "");
         this.dynamiteFuseTicks = Math.max(1, config.getInt("dynamite.fuse-ticks", 50));
-        this.dynamiteConsumeItem = config.getBoolean("dynamite.consume-item", true);
         this.dynamiteCooldownTicks = Math.max(0, config.getInt("dynamite.cooldown-ticks", 100));
         this.overclockEnabled = config.getBoolean("overclock.enabled", false);
         Material ocMat = parseMaterial(config.getString("overclock.material", "CLOCK"));
-        this.overclockMaterial = ocMat != null ? ocMat : Material.CLOCK;
-        this.overclockNameKeyword = config.getString("overclock.name-keyword", "");
         this.overclockCooldownTicks = Math.max(0, config.getInt("overclock.cooldown-ticks", 600));
         this.overclockDurationTicks = Math.max(1, config.getInt("overclock.duration-ticks", 200));
         this.overclockMinJobLevel = Math.max(1, config.getInt("overclock.min-job-level", 1));
@@ -496,20 +486,8 @@ public final class JobMinerConfig {
         return dynamiteEnabled;
     }
 
-    public Material getDynamiteMaterial() {
-        return dynamiteMaterial != null ? dynamiteMaterial : Material.FIRE_CHARGE;
-    }
-
-    public String getDynamiteNameKeyword() {
-        return dynamiteNameKeyword != null ? dynamiteNameKeyword : "";
-    }
-
     public int getDynamiteFuseTicks() {
         return dynamiteFuseTicks;
-    }
-
-    public boolean isDynamiteConsumeItem() {
-        return dynamiteConsumeItem;
     }
 
     public int getDynamiteCooldownTicks() {
@@ -518,14 +496,6 @@ public final class JobMinerConfig {
 
     public boolean isOverclockEnabled() {
         return overclockEnabled;
-    }
-
-    public Material getOverclockMaterial() {
-        return overclockMaterial;
-    }
-
-    public String getOverclockNameKeyword() {
-        return overclockNameKeyword != null ? overclockNameKeyword : "";
     }
 
     public int getOverclockCooldownTicks() {

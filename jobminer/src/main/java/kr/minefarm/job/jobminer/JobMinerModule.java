@@ -123,7 +123,8 @@ public final class JobMinerModule implements JobModule {
                 context.getCore(),
                 regenBlockRegistry,
                 regenMineRewardService,
-                worldGuard
+                worldGuard,
+                pickaxeValidator
         );
         minerJob.bind(context.getCore(), starterKitService, passiveEffectsService, minerSkills);
 
