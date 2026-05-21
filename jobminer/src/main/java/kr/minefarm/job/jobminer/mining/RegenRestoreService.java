@@ -11,7 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 채굴 후 지연 복구 및 관리자 즉시 초기화.
  * <p>
- * {@code runTaskLater} 완료 후 pendingTaskIds 에서 자동 제거하여 맵 누수를 방지한다.
+ * 채굴 즉시 대체 블록(예: COBBLESTONE)으로 교체한 뒤,
+ * {@code runTaskLater} 완료 후 원래 블록으로 복구.
  */
 public final class RegenRestoreService {
 
@@ -35,10 +36,22 @@ public final class RegenRestoreService {
         RegenBlockEntry.BlockKey key = entry.key();
         cancelPending(key);
 
+        // ★ 채굴 직후 즉시 대체 블록 배치
+        if (config.isRegenReplacementEnabled() && block != null) {
+            Material replacement = config.getRegenReplacementMaterial();
+            if (replacement != null && replacement != Material.AIR) {
+                // 다음 tick에 setType (BlockBreakEvent 처리 직후 적용)
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Block b = entry.resolveBlock();
+                    if (b != null) b.setType(replacement, false);
+                });
+            }
+        }
+
         long delayTicks = config.getRegenDelaySeconds() * 20L;
         int taskId = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             restoreEntry(entry);
-            pendingTaskIds.remove(key); // 자연 완료 후 맵에서 제거하여 누수 방지
+            pendingTaskIds.remove(key);
         }, delayTicks).getTaskId();
         pendingTaskIds.put(key, taskId);
     }
@@ -60,11 +73,7 @@ public final class RegenRestoreService {
     private boolean restoreEntry(RegenBlockEntry entry) {
         Block block = entry.resolveBlock();
         if (block == null) return false;
-        Material current = block.getType();
-        if (current == Material.AIR || current == Material.CAVE_AIR || current == Material.VOID_AIR) {
-            entry.applyTo(block);
-            return true;
-        }
+        // 대체 블록 / AIR / 다른 블록 어떤 상태든 원본으로 복구
         if (block.getBlockData().matches(entry.createBlockData())) return true;
         entry.applyTo(block);
         return true;
@@ -77,7 +86,7 @@ public final class RegenRestoreService {
         }
     }
 
-    /** 모듈 비활성화·리로드 시 대기 중인 복구 태스크를 모두 취소한다. */
+    /** 모듈 비활성화·리로드 시 대기 중인 복구 태스크를 모두 취소. */
     public void cancelAllPending() {
         for (Integer taskId : pendingTaskIds.values()) {
             plugin.getServer().getScheduler().cancelTask(taskId);

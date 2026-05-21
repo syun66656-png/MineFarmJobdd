@@ -111,12 +111,23 @@ public final class MinerSkills implements Listener {
         }
 
         Player player = event.getPlayer();
+        ItemStack hand = player.getInventory().getItemInMainHand();
+
+        // 스킬 아이템(다이너마이트/오버클럭)을 들고 우클릭했는지 먼저 확인
+        boolean holdingSkillItem =
+                (config.isDynamiteEnabled()
+                        && matchesSkillItem(hand, config.getDynamiteMaterial(), config.getDynamiteNameKeyword()))
+                || (config.isOverclockEnabled()
+                        && matchesSkillItem(hand, config.getOverclockMaterial(), config.getOverclockNameKeyword()));
+
         PlayerJobProfile profile = core.getPlayerProfiles().getCached(player.getUniqueId());
         if (profile == null || profile.getJobId() != JobId.MINER) {
+            // 스킬 아이템 들고 시도했는데 광부가 아니면 안내
+            if (holdingSkillItem) {
+                player.sendMessage("§c[광산] §f광부 직업이 아니므로 스킬을 사용할 수 없습니다.");
+            }
             return;
         }
-
-        ItemStack hand = player.getInventory().getItemInMainHand();
 
         if (tryUseDynamite(event, player, profile, hand)) {
             return;

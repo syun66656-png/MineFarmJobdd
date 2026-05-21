@@ -85,6 +85,19 @@ public final class JobMinerConfig {
         return config.getInt("regen.delay-seconds", 30);
     }
 
+    public Material getRegenReplacementMaterial() {
+        String name = config.getString("regen.replacement-material", "COBBLESTONE");
+        try {
+            return Material.valueOf(name.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            return Material.COBBLESTONE;
+        }
+    }
+
+    public boolean isRegenReplacementEnabled() {
+        return config.getBoolean("regen.replacement-enabled", true);
+    }
+
     public Material getRegenWandMaterial() {
         String name = config.getString("regen-wand.material", "GOLDEN_AXE");
         try {

@@ -96,6 +96,9 @@ allowed_pickaxe_keywords:
 
 regen:
   delay-seconds: 30
+  # 채굴 후 대기 시간 동안 표시할 대체 블록 (true 시 즉시 교체, delay-seconds 후 원본 복구)
+  replacement-enabled: true
+  replacement-material: COBBLESTONE
 
 regen-wand:
   material: GOLDEN_AXE
