@@ -104,26 +104,31 @@ public final class StarterKitService {
 
     private boolean tryPlaceInSlot(PlayerInventory inv, ItemStack give, String slot) {
         if (slot == null || slot.isBlank()) return false;
-        switch (slot.toLowerCase(Locale.ROOT)) {
-            case "hand", "mainhand"    -> { inv.setItemInMainHand(give); return true; }
-            case "offhand"             -> { inv.setItemInOffHand(give); return true; }
-            case "helmet", "head"      -> { inv.setHelmet(give); return true; }
-            case "chestplate", "chest" -> { inv.setChestplate(give); return true; }
-            case "leggings", "legs"    -> { inv.setLeggings(give); return true; }
-            case "boots", "feet"       -> { inv.setBoots(give); return true; }
-            default -> {
-                try {
-                    int idx = Integer.parseInt(slot.trim());
-                    if (idx >= 0 && idx < inv.getSize()) {
-                        ItemStack existing = inv.getItem(idx);
-                        if (existing == null || existing.getType().isAir()) {
-                            inv.setItem(idx, give);
-                            return true;
-                        }
+        String s = slot.toLowerCase(Locale.ROOT);
+        if (s.equals("hand") || s.equals("mainhand")) {
+            inv.setItemInMainHand(give); return true;
+        } else if (s.equals("offhand")) {
+            inv.setItemInOffHand(give); return true;
+        } else if (s.equals("helmet") || s.equals("head")) {
+            inv.setHelmet(give); return true;
+        } else if (s.equals("chestplate") || s.equals("chest")) {
+            inv.setChestplate(give); return true;
+        } else if (s.equals("leggings") || s.equals("legs")) {
+            inv.setLeggings(give); return true;
+        } else if (s.equals("boots") || s.equals("feet")) {
+            inv.setBoots(give); return true;
+        } else {
+            try {
+                int idx = Integer.parseInt(s.trim());
+                if (idx >= 0 && idx < inv.getSize()) {
+                    ItemStack existing = inv.getItem(idx);
+                    if (existing == null || existing.getType().isAir()) {
+                        inv.setItem(idx, give);
+                        return true;
                     }
-                } catch (NumberFormatException ignored) {}
-                return false;
-            }
+                }
+            } catch (NumberFormatException ignored) {}
+            return false;
         }
     }
 

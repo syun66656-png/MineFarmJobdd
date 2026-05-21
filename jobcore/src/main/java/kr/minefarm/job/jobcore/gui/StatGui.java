@@ -143,19 +143,18 @@ public final class StatGui extends AbstractJobGui {
         if (cached == null) {
             return;
         }
-        switch (result) {
-            case SUCCESS -> {
-                player.sendMessage(messages.format("stat-invest-success", Map.of(
-                        "stat", type.getDisplayName(),
-                        "points", String.valueOf(cached.getStatPoints())
-                )));
-                rebuild();
-            }
-            case NO_POINTS -> player.sendMessage(messages.get("stat-no-points"));
-            case MAX_LEVEL -> player.sendMessage(messages.format("stat-max-level", Map.of(
-                    "max", String.valueOf(maxStatLevel)
+        if (result == StatService.InvestResult.SUCCESS) {
+            player.sendMessage(messages.format("stat-invest-success", Map.of(
+                    "stat", type.getDisplayName(),
+                    "points", String.valueOf(cached.getStatPoints())
             )));
-            case NO_JOB -> player.sendMessage(messages.get("stat-no-job"));
+            rebuild();
+        } else if (result == StatService.InvestResult.NO_POINTS) {
+            player.sendMessage(messages.get("stat-no-points"));
+        } else if (result == StatService.InvestResult.MAX_LEVEL) {
+            player.sendMessage(messages.format("stat-max-level", Map.of("max", String.valueOf(maxStatLevel))));
+        } else if (result == StatService.InvestResult.NO_JOB) {
+            player.sendMessage(messages.get("stat-no-job"));
         }
     }
 
@@ -164,14 +163,14 @@ public final class StatGui extends AbstractJobGui {
         if (cached == null) {
             return;
         }
-        switch (result) {
-            case SUCCESS -> {
-                String status = cached.isAutoSellEnabled() ? "ON" : "OFF";
-                player.sendMessage(messages.format("stat-toggle-success", Map.of("status", status)));
-                rebuild();
-            }
-            case NOT_MINER -> player.sendMessage(messages.get("stat-toggle-not-miner"));
-            case NO_JOB -> player.sendMessage(messages.get("stat-no-job"));
+        if (result == StatService.ToggleResult.SUCCESS) {
+            String status = cached.isAutoSellEnabled() ? "ON" : "OFF";
+            player.sendMessage(messages.format("stat-toggle-success", Map.of("status", status)));
+            rebuild();
+        } else if (result == StatService.ToggleResult.NOT_MINER) {
+            player.sendMessage(messages.get("stat-toggle-not-miner"));
+        } else if (result == StatService.ToggleResult.NO_JOB) {
+            player.sendMessage(messages.get("stat-no-job"));
         }
     }
 }

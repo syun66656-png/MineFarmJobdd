@@ -126,15 +126,12 @@ public final class VelocityProviderImpl implements VelocityProvider, PluginMessa
 
         VelocityPlayerState state = playerStates.computeIfAbsent(playerId, ignored -> new VelocityPlayerState());
 
-        switch (type) {
-            case "IP" -> {
-                if (parts.length >= 3) state.setForwardedAddress(parts[2]);
-            }
-            case "SWITCH" -> {
-                if (parts.length >= 4) state.applyServerSwitch(parts[2], parts[3]);
-                else if (parts.length == 3) state.switchServer(parts[2]);
-            }
-            default -> { /* 알 수 없는 타입 무시 */ }
+        if ("IP".equals(type)) {
+            if (parts.length >= 3) state.setForwardedAddress(parts[2]);
+        } else if ("SWITCH".equals(type)) {
+            if (parts.length >= 4) state.applyServerSwitch(parts[2], parts[3]);
+            else if (parts.length == 3) state.switchServer(parts[2]);
         }
+        // 알 수 없는 타입은 무시
     }
 }

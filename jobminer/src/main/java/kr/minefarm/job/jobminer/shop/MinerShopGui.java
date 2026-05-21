@@ -299,18 +299,19 @@ public final class MinerShopGui implements Listener {
         MinerShopService.SellResult result = shopService.sellAll(player, material, profile);
         if (!config.isShopNotifyOnSell()) return;
 
-        switch (result.status()) {
-            case SUCCESS -> player.sendMessage(config.getShopSellMessage()
+        MinerShopService.SellResult.Status status = result.status();
+        if (status == MinerShopService.SellResult.Status.SUCCESS) {
+            player.sendMessage(config.getShopSellMessage()
                     .replace("{item}", friendlyName(material))
                     .replace("{amount}", String.valueOf(result.amount()))
                     .replace("{price}", String.format("%.1f", result.price()))
                     .replace('&', '§'));
-            case NO_ITEMS ->
-                    player.sendMessage("§c" + friendlyName(material) + "이(가) 인벤토리에 없습니다.");
-            case VAULT_ERROR ->
-                    player.sendMessage(config.getShopVaultErrorMessage().replace('&', '§'));
-            case NO_PRICE ->
-                    player.sendMessage("§c해당 아이템은 판매할 수 없습니다.");
+        } else if (status == MinerShopService.SellResult.Status.NO_ITEMS) {
+            player.sendMessage("§c" + friendlyName(material) + "이(가) 인벤토리에 없습니다.");
+        } else if (status == MinerShopService.SellResult.Status.VAULT_ERROR) {
+            player.sendMessage(config.getShopVaultErrorMessage().replace('&', '§'));
+        } else if (status == MinerShopService.SellResult.Status.NO_PRICE) {
+            player.sendMessage("§c해당 아이템은 판매할 수 없습니다.");
         }
     }
 
