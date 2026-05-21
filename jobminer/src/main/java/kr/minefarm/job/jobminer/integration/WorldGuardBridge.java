@@ -4,29 +4,38 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.plugin.Plugin;
 
-import java.lang.reflect.Method;
-import java.util.Collection;
 import java.util.Set;
 import java.util.logging.Logger;
 
 /**
- * WorldGuard 리전(region) 검사 — Reflection 기반.
+ * WorldGuard 리전 검사.
  * <p>
- * WorldGuard가 서버에 없어도 빌드/실행 가능하다. 클래스 로딩은 lazy로 시도하며,
- * 실패 시 모든 위치를 "허용"으로 간주(= WorldGuard 없는 환경에선 기존 동작 유지).
+ * WorldGuard가 서버에 없으면 {@link #available} = false → 모든 위치를 "허용"으로 처리.
+ * WorldGuard 클래스 참조는 {@link WorldGuardChecker}에 격리되어 있어 미설치 환경에서도
+ * NoClassDefFoundError 없이 동작한다.
  */
 public final class WorldGuardBridge {
 
     private final Logger logger;
     private final boolean available;
-    // WorldGuard reflection 핸들
-    private Object regionContainer;     // com.sk89q.worldguard.protection.regions.RegionContainer
-    private Method getApplicableRegionsMethod;
-    private Method bukkitAdaptLocation; // com.sk89q.worldedit.bukkit.BukkitAdapter#adapt(Location)
 
     public WorldGuardBridge(Logger logger) {
         this.logger = logger;
-        this.available = init();
+        Plugin wg = Bukkit.getPluginManager().getPlugin("WorldGuard");
+        boolean ok = false;
+        if (wg != null && wg.isEnabled()) {
+            try {
+                // 클래스 로딩 가능 여부 확인 (실제 API 호출은 WorldGuardChecker에서)
+                Class.forName("com.sk89q.worldguard.WorldGuard");
+                ok = true;
+                logger.info("[JobMiner] WorldGuard 연동 OK (v" + wg.getDescription().getVersion() + ")");
+            } catch (Throwable t) {
+                logger.warning("[JobMiner] WorldGuard 발견했지만 API 로딩 실패: " + t.getMessage());
+            }
+        } else {
+            logger.info("[JobMiner] WorldGuard 미설치 — 리전 검사 비활성");
+        }
+        this.available = ok;
     }
 
     public boolean isAvailable() {
@@ -34,51 +43,18 @@ public final class WorldGuardBridge {
     }
 
     /**
-     * 해당 위치가 allowedRegionIds 중 하나에 포함되는지 검사.
-     * allowedRegionIds 가 비어 있으면 true(제한 없음).
+     * 해당 위치가 allowedRegionIds 중 하나에 속하는지 검사.
+     * allowedRegionIds 비어 있으면 true(제한 없음).
+     * WorldGuard 미설치 시 항상 true (모든 곳에서 효과 적용).
      */
     public boolean isInAnyRegion(Location loc, Set<String> allowedRegionIds) {
         if (allowedRegionIds == null || allowedRegionIds.isEmpty()) return true;
-        if (!available || loc == null) return true; // WorldGuard 없으면 허용 (서버 운영자 책임)
+        if (!available || loc == null) return true;
         try {
-            Object weLocation = bukkitAdaptLocation.invoke(null, loc);
-            Object applicableSet = getApplicableRegionsMethod.invoke(regionContainer.getClass()
-                    .getMethod("createQuery").invoke(regionContainer), weLocation);
-            // applicableSet: ApplicableRegionSet — 반복하며 ProtectedRegion.getId() 검사
-            Iterable<?> iterable = (Iterable<?>) applicableSet;
-            for (Object region : iterable) {
-                String id = (String) region.getClass().getMethod("getId").invoke(region);
-                if (id != null && allowedRegionIds.contains(id)) return true;
-            }
-            return false;
+            return WorldGuardChecker.isInside(loc, allowedRegionIds);
         } catch (Throwable t) {
-            // reflection 실패 시 로그 한 번만 — 일단 허용 (서버 마비 방지)
-            return true;
-        }
-    }
-
-    private boolean init() {
-        Plugin wg = Bukkit.getPluginManager().getPlugin("WorldGuard");
-        if (wg == null || !wg.isEnabled()) {
-            logger.info("[JobMiner] WorldGuard 미설치 — 리전 검사 비활성화");
-            return false;
-        }
-        try {
-            Class<?> wgClass = Class.forName("com.sk89q.worldguard.WorldGuard");
-            Object instance = wgClass.getMethod("getInstance").invoke(null);
-            Object platform = wgClass.getMethod("getPlatform").invoke(instance);
-            this.regionContainer = platform.getClass().getMethod("getRegionContainer").invoke(platform);
-            // createQuery() 와 getApplicableRegions(Location) 동적 탐색
-            Class<?> queryClass = Class.forName("com.sk89q.worldguard.protection.regions.RegionQuery");
-            Class<?> weLocClass = Class.forName("com.sk89q.worldedit.util.Location");
-            this.getApplicableRegionsMethod = queryClass.getMethod("getApplicableRegions", weLocClass);
-            Class<?> bukkitAdapter = Class.forName("com.sk89q.worldedit.bukkit.BukkitAdapter");
-            this.bukkitAdaptLocation = bukkitAdapter.getMethod("adapt", Location.class);
-            logger.info("[JobMiner] WorldGuard 연동 OK");
-            return true;
-        } catch (Throwable t) {
-            logger.warning("[JobMiner] WorldGuard 발견했지만 연동 실패: " + t.getMessage());
-            return false;
+            logger.warning("[JobMiner] WG 리전 검사 실패: " + t.getMessage());
+            return true; // 실패 시 통과(서비스 마비 방지)
         }
     }
 }

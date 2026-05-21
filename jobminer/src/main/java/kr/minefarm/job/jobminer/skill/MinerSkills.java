@@ -100,11 +100,13 @@ public final class MinerSkills implements Listener {
         overclockCooldownUntilMs.clear();
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent event) {
+        // PlayerInteractEvent는 MAIN_HAND, OFF_HAND 두 번 발생 — 메인 핸드만 처리
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
+        // useItemInHand() == DENY 인 경우에도 우리 스킬은 발동해야 함 (보호 플러그인이 막아도 우클릭은 처리)
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
             return;

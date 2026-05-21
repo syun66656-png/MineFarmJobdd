@@ -3,6 +3,7 @@ package kr.minefarm.job.jobminer.listener;
 import kr.minefarm.job.jobcore.api.JobCoreAPI;
 import kr.minefarm.job.jobcore.domain.JobId;
 import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
+import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import org.bukkit.block.Block;
