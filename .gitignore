@@ -1,7 +1,24 @@
+# Maven 빌드 결과물
 target/
+*.jar
+*.war
+*.ear
+
+# IntelliJ IDEA
 .idea/
 *.iml
-.classpath
-.project
-.settings/
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Windows
+Thumbs.db
+
+# 로그
 *.log
