@@ -51,7 +51,8 @@ public final class RegenMineRewardService {
 
     public void deliverRewards(Player player, PlayerJobProfile profile, Block block, RegenBlockEntry entry) {
         // ① 채굴된 블록 Material에 맞는 드롭 생성 (광물별 + 공통 확률)
-        org.bukkit.Material blockType = block.getType();
+        // ★ entry.getMaterial() 사용 — 다이너마이트 폭발 등으로 이미 block이 AIR가 된 경우에도 정확
+        org.bukkit.Material blockType = entry.getMaterial();
         List<ItemStack> drops = dropResolver.resolveMiningDrops(blockType);
 
         // ② RELIC 보너스 드롭 — 광물별 지정 드롭에서만 추가 발동
@@ -72,15 +73,15 @@ public final class RegenMineRewardService {
         }
 
         // ④ 광물별 경험치 + RELIC 경험치 보너스 지급
-        grantMineExp(player, block, profile);
+        grantMineExp(player, entry, profile);
 
         // ⑤ 리젠 예약
         regenRestoreService.scheduleRestore(block, entry);
     }
 
-    private void grantMineExp(Player player, Block block, PlayerJobProfile profile) {
+    private void grantMineExp(Player player, RegenBlockEntry entry, PlayerJobProfile profile) {
         MineExpTable expTable = config.getMineExpTable();
-        long baseExp = expTable.roll(block.getType());
+        long baseExp = expTable.roll(entry.getMaterial());
         if (baseExp <= 0) return;
 
         // RELIC 스탯 경험치 보너스 적용
