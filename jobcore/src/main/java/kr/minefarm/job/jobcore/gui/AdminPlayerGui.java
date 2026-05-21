@@ -91,7 +91,12 @@ public final class AdminPlayerGui extends AbstractJobGui {
         });
         guiConfig.getItem("admin-player", ITEM_RESET).ifPresent(template -> {
             if (event.getSlot() == template.slot()) {
-                player.sendMessage(messages.get("admin-reset-not-implemented"));
+                // Shift + 좌클릭일 때만 실행 (실수 방지)
+                if (!event.isShiftClick() || !event.isLeftClick()) {
+                    player.sendMessage(messages.get("admin-reset-confirm"));
+                    return;
+                }
+                guiService.resetTargetAsync(admin, targetUuid, targetName);
             }
         });
     }

@@ -11,9 +11,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * 직업 선택 GUI (직업 없을 때 / 관리자 연동용).
+ * 직업 선택 GUI.
+ * <ul>
+ *   <li>일반 모드: 플레이어 본인 직업 변경</li>
+ *   <li>관리자 모드: targetUuid 지정 시 관리자 화면에서 대상 직업 변경 (오프라인 포함)</li>
+ * </ul>
  */
 public final class JobSelectGui extends AbstractJobGui {
 
@@ -22,6 +27,12 @@ public final class JobSelectGui extends AbstractJobGui {
     private final JobRegistry jobRegistry;
     private final Map<Integer, JobId> slotJobs = new HashMap<>();
 
+    /** 관리자 모드일 때 대상 UUID; null이면 일반 모드 */
+    private final UUID targetUuid;
+    /** 관리자 모드일 때 대상 이름 (메시지용); null이면 일반 모드 */
+    private final String targetName;
+
+    /** 일반 모드 생성자 */
     public JobSelectGui(
             JavaPlugin plugin,
             GuiConfig guiConfig,
@@ -29,11 +40,33 @@ public final class JobSelectGui extends AbstractJobGui {
             MessageConfig messages,
             JobRegistry jobRegistry
     ) {
-        super(plugin, guiConfig, "job-select");
+        this(plugin, guiConfig, guiService, messages, jobRegistry, null, null);
+    }
+
+    /** 관리자 모드 생성자 */
+    public JobSelectGui(
+            JavaPlugin plugin,
+            GuiConfig guiConfig,
+            JobGuiService guiService,
+            MessageConfig messages,
+            JobRegistry jobRegistry,
+            UUID targetUuid,
+            String targetName
+    ) {
+        super(plugin, guiConfig, "job-select",
+                resolveTitle(guiConfig, targetName));
         this.guiService = guiService;
         this.messages = messages;
         this.jobRegistry = jobRegistry;
+        this.targetUuid = targetUuid;
+        this.targetName = targetName;
         buildJobItems();
+    }
+
+    private static String resolveTitle(GuiConfig guiConfig, String targetName) {
+        String base = guiConfig.getTitle("job-select");
+        if (targetName == null) return base;
+        return "§c[관리] " + base + " §7→ §f" + targetName;
     }
 
     private void buildJobItems() {
@@ -71,6 +104,12 @@ public final class JobSelectGui extends AbstractJobGui {
             player.sendMessage(messages.get("job-not-registered"));
             return;
         }
-        guiService.selectJobAsync(player, jobId, null);
+        if (targetUuid != null) {
+            // 관리자 모드 — 대상 UUID로 직업 변경
+            guiService.selectJobForTargetAsync(player, targetUuid, targetName, jobId);
+        } else {
+            // 일반 모드 — 본인 직업 변경
+            guiService.selectJobAsync(player, jobId, null);
+        }
     }
 }

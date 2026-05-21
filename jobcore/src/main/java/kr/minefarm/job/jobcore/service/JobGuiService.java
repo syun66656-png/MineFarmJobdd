@@ -104,15 +104,48 @@ public final class JobGuiService {
         openTracked(player, gui);
     }
 
-    /** 관리자가 대상 직업을 변경할 때 (골격 — 대상 온라인 시 동일 플로우). */
+    /**
+     * 관리자가 대상 직업을 변경할 때 — admin 본인에게 JobSelectGui를 열고,
+     * 클릭 시 대상 UUID로 직업이 변경된다.
+     * 대상이 오프라인이어도 DB 업데이트되므로 그대로 진행.
+     */
     public void openJobSelectForTarget(Player admin, UUID targetUuid, String targetName) {
-        OfflinePlayer target = Bukkit.getOfflinePlayer(targetUuid);
-        if (target.isOnline() && target.getPlayer() != null) {
-            admin.sendMessage(messages.format("admin-open-gui", Map.of("target", targetName)));
-            openJobSelect(target.getPlayer());
-            return;
-        }
-        admin.sendMessage(messages.get("admin-player-not-found"));
+        JobSelectGui gui = new JobSelectGui(
+                plugin, guiConfig, this, messages, jobRegistry, targetUuid, targetName
+        );
+        openTracked(admin, gui);
+    }
+
+    /** 관리자가 직업 선택 GUI에서 클릭 → 대상 UUID로 직업 변경 */
+    public void selectJobForTargetAsync(Player admin, UUID targetUuid, String targetName, JobId jobId) {
+        jobService.changeJobByUuid(targetUuid, jobId).whenComplete((success, throwable) ->
+                runSync(() -> {
+                    if (throwable != null || success == null || !success) {
+                        admin.sendMessage(messages.get("job-select-failed"));
+                        return;
+                    }
+                    admin.sendMessage(messages.format(
+                            "admin-target-job-changed",
+                            Map.of("target", targetName, "job", jobId.getDisplayName())
+                    ));
+                    admin.closeInventory();
+                }));
+    }
+
+    /** 관리자: 대상 플레이어 데이터 초기화 (직업/레벨/경험치/스탯 모두 0) */
+    public void resetTargetAsync(Player admin, UUID targetUuid, String targetName) {
+        profileService.resetAsync(targetUuid).whenComplete((ignored, throwable) ->
+                runSync(() -> {
+                    if (throwable != null) {
+                        admin.sendMessage(messages.get("admin-reset-failed"));
+                        return;
+                    }
+                    admin.sendMessage(messages.format(
+                            "admin-reset-success",
+                            Map.of("target", targetName)
+                    ));
+                    admin.closeInventory();
+                }));
     }
 
     public void openAdminGuiAsync(Player admin, OfflinePlayer target) {

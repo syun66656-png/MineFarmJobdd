@@ -134,6 +134,9 @@ admin-player:
     reset-data:
       slot: 24
       material: BARRIER
-      name: "&c데이터 초기화"
+      name: "&c&l데이터 초기화"
       lore:
-        - "&7준비 중 — 추후 구현"
+        - "&7대상의 직업·레벨·경험치·스탯을"
+        - "&7모두 초기 상태로 되돌립니다."
+        - ""
+        - "&e&lShift + 좌클릭 &7으로 확정"

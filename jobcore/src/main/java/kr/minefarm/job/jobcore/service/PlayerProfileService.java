@@ -67,6 +67,22 @@ public final class PlayerProfileService {
                 pendingWrites.decrementAndGet());
     }
 
+    /**
+     * 관리자용: 플레이어 프로필을 초기 상태로 리셋한다.
+     * - 캐시·futureCache 제거
+     * - 새 빈 PlayerJobProfile 생성 후 저장
+     * - 결과: 직업/레벨/경험치/스탯 모두 초기값 (JobId.NONE, level 1, exp 0, stats 0)
+     */
+    public CompletableFuture<Void> resetAsync(UUID uuid) {
+        cache.remove(uuid);
+        futureCache.remove(uuid);
+        PlayerJobProfile fresh = new PlayerJobProfile(uuid);
+        cache.put(uuid, fresh);
+        pendingWrites.incrementAndGet();
+        return repository.saveAsync(fresh).whenComplete((ignored, throwable) ->
+                pendingWrites.decrementAndGet());
+    }
+
     public void unload(UUID uuid) {
         futureCache.remove(uuid);
         PlayerJobProfile profile = cache.remove(uuid);

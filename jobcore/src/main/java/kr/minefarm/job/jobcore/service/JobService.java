@@ -56,6 +56,54 @@ public final class JobService {
         });
     }
 
+    /**
+     * UUID 기반 직업 변경 — 오프라인 플레이어 포함.
+     * onSelect/onDeselect 훅은 플레이어 온라인일 때만 호출됨.
+     * 관리자 도구 전용. 반환값은 changeJob과 동일 (true=성공/false=쿨타임 등).
+     */
+    public CompletableFuture<Boolean> changeJobByUuid(java.util.UUID targetUuid, JobId newJobId) {
+        return profileService.loadOrCreate(targetUuid).thenCompose(profile -> {
+            CompletableFuture<Boolean> done = new CompletableFuture<>();
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                Player online = plugin.getServer().getPlayer(targetUuid);
+                if (online != null) {
+                    // 온라인 — 일반 플로우와 동일 (onDeselect/onSelect 호출)
+                    applyJobChangeOnMainThread(online, profile, newJobId, done);
+                } else {
+                    // 오프라인 — DB만 업데이트
+                    applyJobChangeOffline(profile, newJobId, done);
+                }
+            });
+            return done;
+        });
+    }
+
+    private void applyJobChangeOffline(
+            PlayerJobProfile profile,
+            JobId newJobId,
+            CompletableFuture<Boolean> done
+    ) {
+        if (!canChangeJob(profile)) { done.complete(false); return; }
+        if (!newJobId.hasJob() && profile.getJobId() == JobId.NONE) { done.complete(false); return; }
+        if (newJobId.hasJob() && !jobRegistry.isRegistered(newJobId)) { done.complete(false); return; }
+        if (profile.getJobId() == newJobId) { done.complete(true); return; }
+
+        profile.setJobId(newJobId);
+        profile.setLastJobChangeAt(Instant.now());
+
+        profileService.saveAsync(profile).handle((ignored, throwable) -> {
+            if (throwable != null) {
+                plugin.getLogger().log(Level.WARNING,
+                        "[JobCore] saveAsync(offline) failed for " + profile.getPlayerUuid(),
+                        throwable);
+                done.complete(false);
+            } else {
+                done.complete(true);
+            }
+            return null;
+        });
+    }
+
     private void applyJobChangeOnMainThread(
             Player player,
             PlayerJobProfile profile,

@@ -17,4 +17,8 @@ messages:
   level-up: "&6[레벨업] &f레벨 &e{level} &f달성! &7(+{gained} 스탯 포인트)"
   admin-resolving: "&7닉네임 조회 중..."
   admin-reset-not-implemented: "&7[JobCore] &f리셋 기능은 아직 구현되지 않았습니다."
+  admin-reset-confirm: "&e[관리] &fShift+좌클릭으로 데이터 초기화를 확정하세요."
+  admin-reset-success: "&a[관리] &f{target}의 데이터를 초기화했습니다."
+  admin-reset-failed: "&c[관리] &f데이터 초기화 중 오류가 발생했습니다."
+  admin-target-job-changed: "&a[관리] &f{target}의 직업을 &e{job}&f로 변경했습니다."
   job-select-error: "&c직업 변경 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
