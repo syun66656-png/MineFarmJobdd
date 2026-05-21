@@ -16,7 +16,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -404,8 +403,11 @@ public final class MinerSkills implements Listener {
 
     /**
      * 오버클럭 발동 사운드 — config.activation-sound.
-     * Paper 1.21에서 Sound가 Registry 기반으로 변경되어 NamespacedKey로 조회.
-     * 미존재/잘못된 키일 경우 player.playSound(string) fallback.
+     * Paper 버전 차이를 피하기 위해 String 기반 playSound 만 사용.
+     * config 값 예시:
+     *   ENTITY_BLAZE_SHOOT          → minecraft:entity.blaze.shoot 로 변환
+     *   minecraft:entity.blaze.shoot → 그대로 사용
+     *   entity.blaze.shoot           → minecraft: prefix 자동 부여
      */
     private void playOverclockSound(Player player) {
         String name = config.getOverclockActivationSound();
@@ -413,29 +415,20 @@ public final class MinerSkills implements Listener {
         float vol = config.getOverclockActivationSoundVolume();
         float pitch = config.getOverclockActivationSoundPitch();
 
-        // 1) Sound enum 이름 → Registry 조회 시도 (e.g. "ENTITY_BLAZE_SHOOT")
-        try {
-            NamespacedKey key = NamespacedKey.minecraft(
-                    name.toLowerCase().replace('_', '.').replace("entity.", "entity.")
-            );
-            Sound sound = Registry.SOUNDS.get(key);
-            if (sound != null) {
-                player.playSound(player.getLocation(), sound, vol, pitch);
-                return;
-            }
-        } catch (Throwable ignored) {}
+        String soundKey;
+        if (name.contains(":")) {
+            soundKey = name.toLowerCase();
+        } else if (name.contains(".")) {
+            soundKey = "minecraft:" + name.toLowerCase();
+        } else {
+            // ENTITY_BLAZE_SHOOT → minecraft:entity.blaze.shoot
+            soundKey = "minecraft:" + name.toLowerCase().replace('_', '.');
+        }
 
-        // 2) 직접 NamespacedKey 문자열 (e.g. "minecraft:entity.blaze.shoot")
         try {
-            String soundKey = name.contains(":") ? name :
-                    "minecraft:" + name.toLowerCase().replace('_', '.');
             player.playSound(player.getLocation(), soundKey, vol, pitch);
         } catch (Throwable ignored) {
-            // 마지막 fallback: Sound enum 직접 — 1.21에서도 enum 호환됨
-            try {
-                Sound fallback = Sound.valueOf(name.toUpperCase());
-                player.playSound(player.getLocation(), fallback, vol, pitch);
-            } catch (Throwable ignored2) {}
+            // 잘못된 사운드 키 — 조용히 무시
         }
     }
 
