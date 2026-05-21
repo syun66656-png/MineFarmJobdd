@@ -78,6 +78,11 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
             case "exp_remaining" -> String.valueOf(experienceProgression.getExpUntilNextLevel(profile));
             case "exp_percent" -> formatExpPercent(profile);
             case "exp_bar" -> formatExpBar(profile);
+            // BetterHud 등 외부 HUD 연동용
+            case "exp_ratio" -> formatExpRatio(profile);       // 0.0 ~ 1.0
+            case "max_level", "level_max" -> String.valueOf(experienceProgression.getMaxLevel());
+            case "is_max_level" -> String.valueOf(profile.getLevel() >= experienceProgression.getMaxLevel());
+            case "level_ratio" -> formatLevelRatio(profile);   // 0.0 ~ 1.0 (현재 레벨 / 최대 레벨)
             case "stat_points" -> String.valueOf(profile.getStatPoints());
             case "invested_stats" -> String.valueOf(profile.getInvestedStats());
             case "has_job" -> String.valueOf(profile.getJobId().hasJob());
@@ -122,6 +127,27 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
         return sb.toString();
     }
 
+    /** 경험치 진행률 0.0 ~ 1.0 (BetterHud progress bar 입력용, 소수점 4자리) */
+    private String formatExpRatio(PlayerJobProfile profile) {
+        long required = experienceProgression.getRequiredForNextLevel(profile);
+        if (required <= 0) return "1.0";
+        long remaining = experienceProgression.getExpUntilNextLevel(profile);
+        double ratio = (double) (required - remaining) / required;
+        if (ratio < 0) ratio = 0;
+        if (ratio > 1) ratio = 1;
+        return String.format(Locale.ROOT, "%.4f", ratio);
+    }
+
+    /** 레벨 진행률 0.0 ~ 1.0 (현재 레벨 / 최대 레벨). 만렙이면 1.0 */
+    private String formatLevelRatio(PlayerJobProfile profile) {
+        int max = experienceProgression.getMaxLevel();
+        if (max <= 0) return "1.0";
+        double ratio = (double) profile.getLevel() / max;
+        if (ratio < 0) ratio = 0;
+        if (ratio > 1) ratio = 1;
+        return String.format(Locale.ROOT, "%.4f", ratio);
+    }
+
     private String resolveJobDisplayName(PlayerJobProfile profile) {
         JobId jobId = profile.getJobId();
         return jobRegistry.find(jobId)
@@ -137,6 +163,10 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
             case "exp", "exp_remaining" -> "0";
             case "exp_percent" -> "0.0";
             case "exp_bar" -> "░░░░░░░░░░";
+            case "exp_ratio" -> "0.0";
+            case "max_level", "level_max" -> String.valueOf(experienceProgression.getMaxLevel());
+            case "is_max_level" -> "false";
+            case "level_ratio" -> "0.0";
             case "exp_max" -> String.valueOf(experienceProgression.getRequiredForLevel(1));
             case "stat_points", "invested_stats" -> "0";
             case "has_job" -> "false";
