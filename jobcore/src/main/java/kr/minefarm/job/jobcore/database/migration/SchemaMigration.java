@@ -43,6 +43,8 @@ public final class SchemaMigration {
             {"stat_sell", "INT NOT NULL DEFAULT 0"},
             {"stat_auto_sell", "INT NOT NULL DEFAULT 0"},
             {"auto_sell_enabled", "TINYINT(1) NOT NULL DEFAULT 0"},
+            {"boost_multiplier", "DOUBLE NOT NULL DEFAULT 1.0"},
+            {"boost_expiry_time", "BIGINT NOT NULL DEFAULT 0"},
     };
 
     private final DatabaseManager database;

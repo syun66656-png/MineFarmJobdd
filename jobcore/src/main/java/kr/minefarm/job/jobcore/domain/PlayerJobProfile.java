@@ -23,6 +23,10 @@ public final class PlayerJobProfile {
     private int investedStats;
     private final Map<StatType, Integer> statLevels = new EnumMap<>(StatType.class);
     private boolean autoSellEnabled;
+    /** 경험치 배수 (기본 1.0). boostExpiryTime 지나면 자동 1.0 으로 복구. */
+    private double boostMultiplier = 1.0;
+    /** 부스트 만료 시각 (서버 시간 ms). 0 = 비활성. */
+    private long boostExpiryTime = 0L;
     private Instant lastJobChangeAt;
     private boolean dirty;
 
@@ -120,6 +124,32 @@ public final class PlayerJobProfile {
 
     // ── 직업 변경 쿨타임 ──────────────────────────────────────────────────────
 
+    public synchronized double getBoostMultiplier() {
+        return boostMultiplier;
+    }
+
+    public synchronized void setBoostMultiplier(double boostMultiplier) {
+        if (Double.compare(this.boostMultiplier, boostMultiplier) != 0) {
+            this.boostMultiplier = boostMultiplier;
+            this.dirty = true;
+        }
+    }
+
+    public synchronized long getBoostExpiryTime() {
+        return boostExpiryTime;
+    }
+
+    public synchronized void setBoostExpiryTime(long boostExpiryTime) {
+        if (this.boostExpiryTime != boostExpiryTime) {
+            this.boostExpiryTime = boostExpiryTime;
+            this.dirty = true;
+        }
+    }
+
+    public synchronized boolean isBoostActive() {
+        return boostExpiryTime > System.currentTimeMillis() && boostMultiplier > 1.0;
+    }
+
     public synchronized Instant getLastJobChangeAt() {
         return lastJobChangeAt;
     }
@@ -160,7 +190,8 @@ public final class PlayerJobProfile {
                 statLevels.getOrDefault(StatType.SKILL, 0),
                 statLevels.getOrDefault(StatType.SELL, 0),
                 statLevels.getOrDefault(StatType.AUTO_SELL, 0),
-                autoSellEnabled, lastJobChangeAt
+                autoSellEnabled, lastJobChangeAt,
+                boostMultiplier, boostExpiryTime
         );
         this.dirty = false;   // atomic clearDirty
         return snap;
@@ -182,6 +213,8 @@ public final class PlayerJobProfile {
         statLevels.put(StatType.AUTO_SELL, snap.statAutoSell());
         this.autoSellEnabled = snap.autoSellEnabled();
         this.lastJobChangeAt = snap.lastJobChangeAt();
+        this.boostMultiplier = snap.boostMultiplier();
+        this.boostExpiryTime = snap.boostExpiryTime();
     }
 
     /**
@@ -199,6 +232,8 @@ public final class PlayerJobProfile {
             int statSell,
             int statAutoSell,
             boolean autoSellEnabled,
-            Instant lastJobChangeAt
+            Instant lastJobChangeAt,
+            double boostMultiplier,
+            long boostExpiryTime
     ) {}
 }

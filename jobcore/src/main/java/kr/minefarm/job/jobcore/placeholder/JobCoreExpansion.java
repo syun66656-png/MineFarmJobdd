@@ -83,6 +83,10 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
             case "max_level", "level_max" -> String.valueOf(experienceProgression.getMaxLevel());
             case "is_max_level" -> String.valueOf(profile.getLevel() >= experienceProgression.getMaxLevel());
             case "level_ratio" -> formatLevelRatio(profile);   // 0.0 ~ 1.0 (현재 레벨 / 최대 레벨)
+            // 경험치 부스트 (스코어보드/탭리스트 표시용)
+            case "boost_multiplier" -> formatBoostMultiplier(profile);
+            case "boost_remaining" -> formatBoostRemaining(profile);
+            case "is_boosting" -> String.valueOf(profile.isBoostActive());
             case "stat_points" -> String.valueOf(profile.getStatPoints());
             case "invested_stats" -> String.valueOf(profile.getInvestedStats());
             case "has_job" -> String.valueOf(profile.getJobId().hasJob());
@@ -148,6 +152,25 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
         return String.format(Locale.ROOT, "%.4f", ratio);
     }
 
+    /** 부스트 배율 — 정수면 '2', 소수면 '1.5'. 비활성 시 '1' */
+    private String formatBoostMultiplier(PlayerJobProfile profile) {
+        if (!profile.isBoostActive()) return "1";
+        double m = profile.getBoostMultiplier();
+        if (m == Math.rint(m)) return String.valueOf((long) m);
+        return String.format(Locale.ROOT, "%.1f", m);
+    }
+
+    /** 남은 시간 MM:SS, 비활성/만료면 '없음' */
+    private String formatBoostRemaining(PlayerJobProfile profile) {
+        long now = System.currentTimeMillis();
+        long expiry = profile.getBoostExpiryTime();
+        if (expiry <= now || profile.getBoostMultiplier() <= 1.0) return "없음";
+        long remainingSec = (expiry - now + 999) / 1000;
+        long mm = remainingSec / 60;
+        long ss = remainingSec % 60;
+        return String.format(Locale.ROOT, "%02d:%02d", mm, ss);
+    }
+
     private String resolveJobDisplayName(PlayerJobProfile profile) {
         JobId jobId = profile.getJobId();
         return jobRegistry.find(jobId)
@@ -167,6 +190,9 @@ public final class JobCoreExpansion extends PlaceholderExpansion {
             case "max_level", "level_max" -> String.valueOf(experienceProgression.getMaxLevel());
             case "is_max_level" -> "false";
             case "level_ratio" -> "0.0";
+            case "boost_multiplier" -> "1";
+            case "boost_remaining" -> "없음";
+            case "is_boosting" -> "false";
             case "exp_max" -> String.valueOf(experienceProgression.getRequiredForLevel(1));
             case "stat_points", "invested_stats" -> "0";
             case "has_job" -> "false";

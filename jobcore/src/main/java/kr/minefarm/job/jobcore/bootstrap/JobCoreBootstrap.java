@@ -15,6 +15,9 @@ import kr.minefarm.job.jobcore.api.PaperCommandRegistration;
 import kr.minefarm.job.jobcore.command.StatCommand;
 import kr.minefarm.job.jobcore.command.admin.JobAdminCommand;
 import kr.minefarm.job.jobcore.command.admin.JobDataAdminCommand;
+import kr.minefarm.job.jobcore.boost.BoostAdminCommand;
+import kr.minefarm.job.jobcore.boost.BoostInteractListener;
+import kr.minefarm.job.jobcore.boost.ExperienceBoostItem;
 import kr.minefarm.job.jobcore.config.GuiConfig;
 import kr.minefarm.job.jobcore.config.MessageConfig;
 import kr.minefarm.job.jobcore.gui.GuiManager;
@@ -292,6 +295,16 @@ public final class JobCoreBootstrap {
         JobDataAdminCommand dataAdminCmd = new JobDataAdminCommand(plugin, profileService, messageConfig);
         registerAndTrack("직업관리", "관리자: 레벨/경험치/스탯포인트/스탯 직접 조작",
                 dataAdminCmd, dataAdminCmd, "minefarmjob.admin");
+
+        // 경험치 부스트 시스템
+        ExperienceBoostItem boostItem = new ExperienceBoostItem(plugin);
+        BoostAdminCommand boostCmd = new BoostAdminCommand(plugin, boostItem, profileService, messageConfig);
+        registerAndTrack("직업부스트생성", "관리자: 손에 든 아이템을 부스트 쿠폰으로 마킹",
+                boostCmd, boostCmd, "minefarmjob.admin");
+        registerAndTrack("직업부스트지급", "관리자: 특정 유저에게 즉시 부스트 적용",
+                boostCmd, boostCmd, "minefarmjob.admin");
+        plugin.getServer().getPluginManager().registerEvents(
+                new BoostInteractListener(boostItem, profileService, messageConfig), plugin);
 
         registerAndTrack("스탯", "스탯 포인트 투자 및 광부 자동판매 토글",
                 new StatCommand(jobGuiService, messageConfig), null, null);

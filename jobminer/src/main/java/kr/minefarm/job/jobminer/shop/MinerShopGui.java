@@ -182,9 +182,9 @@ public final class MinerShopGui implements Listener {
         return out;
     }
 
+    /** 가격/수량은 정수로만 표시 — 사용자 정책 */
     private static String fmtNum(double v) {
-        if (v == Math.rint(v)) return String.valueOf((long) v);
-        return String.format("%.1f", v);
+        return String.valueOf(Math.round(v));
     }
 
     private static List<String> withDefault(List<String> list, List<String> def) {

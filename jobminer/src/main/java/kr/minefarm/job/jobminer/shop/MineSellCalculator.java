@@ -33,9 +33,6 @@ public final class MineSellCalculator {
     }
 
     public String formatPrice(double price) {
-        if (price == Math.rint(price)) {
-            return String.valueOf((long) price);
-        }
-        return String.format("%.2f", price);
+        return String.valueOf(Math.round(price));
     }
 }

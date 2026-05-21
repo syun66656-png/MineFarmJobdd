@@ -15,6 +15,12 @@ messages:
   stat-toggle-success: "&a자동판매가 &f{status} &a(으)로 변경되었습니다."
   stat-toggle-not-miner: "&c광부 직업만 자동판매를 사용할 수 있습니다."
   level-up: "&6[레벨업] &f레벨 &e{level} &f달성! &7(+{gained} 스탯 포인트)"
+  # ── 경험치 부스트 ─────────────────────────────────────────────────────
+  # {multiplier} 배율, {minutes} 지속 분
+  boost-started: "&a[부스트] &e{multiplier}배 &f경험치 부스트가 &e{minutes}분 &f동안 적용됩니다!"
+  boost-expired: "&c[부스트] &f경험치 부스트 효과가 종료되었습니다."
+  boost-already-active: "&c[부스트] &f이미 부스트 효과가 적용 중입니다."
+  boost-profile-loading: "&7프로필을 불러오는 중입니다. 잠시 후 다시 시도해주세요."
   admin-resolving: "&7닉네임 조회 중..."
   admin-reset-not-implemented: "&7[JobCore] &f리셋 기능은 아직 구현되지 않았습니다."
   admin-reset-confirm: "&e[관리] &fShift+좌클릭으로 데이터 초기화를 확정하세요."

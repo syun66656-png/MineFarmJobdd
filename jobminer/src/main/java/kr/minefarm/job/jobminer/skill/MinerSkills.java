@@ -597,7 +597,7 @@ public final class MinerSkills implements Listener {
                 continue;
             }
             double seconds = (end - now) / 1000.0;
-            String text = String.format("&e오버클럭 &7| &f남은 시간 &b%.1f초", seconds);
+            String text = String.format(java.util.Locale.ROOT, "&e오버클럭 &7| &f남은 시간 &b%d초", (long) Math.ceil(seconds));
             player.sendActionBar(LegacyComponentSerializer.legacyAmpersand().deserialize(text));
         }
     }

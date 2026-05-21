@@ -59,11 +59,33 @@ public final class JobExperienceService {
             // 레벨업 계산은 메인 스레드에서 수행 (다른 스레드 수정과 직렬화)
             CompletableFuture<PlayerJobProfile> done = new CompletableFuture<>();
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                applyExperienceAndLevelUp(player, profile, amount);
+                // 부스트 적용
+                long effective = applyBoost(player, profile, amount);
+                applyExperienceAndLevelUp(player, profile, effective);
                 done.complete(profile);
             });
             return done.thenCompose(p -> profileService.saveAsync(p).thenApply(ignored -> p));
         });
+    }
+
+    /**
+     * 경험치 부스트 적용. 만료된 부스트는 자동 초기화 + 종료 알림.
+     * @return 배수 적용 후 최종 경험치
+     */
+    private long applyBoost(Player player, PlayerJobProfile profile, long base) {
+        long now = System.currentTimeMillis();
+        double multiplier = 1.0;
+        if (profile.getBoostExpiryTime() > now && profile.getBoostMultiplier() > 1.0) {
+            multiplier = profile.getBoostMultiplier();
+        } else if (profile.getBoostMultiplier() > 1.0 || profile.getBoostExpiryTime() > 0) {
+            // 만료 — 초기화 + 알림
+            profile.setBoostMultiplier(1.0);
+            profile.setBoostExpiryTime(0L);
+            if (player != null && player.isOnline()) {
+                player.sendMessage(messageConfig.format("boost-expired", java.util.Map.of()));
+            }
+        }
+        return Math.max(0, Math.round(base * multiplier));
     }
 
     /**

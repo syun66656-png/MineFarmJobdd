@@ -29,7 +29,7 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
     private static final String SELECT = """
             SELECT job_id, level, experience, stat_points, invested_stats,
                    stat_relic, stat_skill, stat_sell, stat_auto_sell, auto_sell_enabled,
-                   last_job_change
+                   last_job_change, boost_multiplier, boost_expiry_time
             FROM job_player_profiles WHERE uuid = ?
             """;
 
@@ -37,8 +37,8 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
             INSERT INTO job_player_profiles
                 (uuid, job_id, level, experience, stat_points, invested_stats,
                  stat_relic, stat_skill, stat_sell, stat_auto_sell, auto_sell_enabled,
-                 last_job_change, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 last_job_change, updated_at, boost_multiplier, boost_expiry_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 job_id = VALUES(job_id),
                 level = VALUES(level),
@@ -51,7 +51,9 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
                 stat_auto_sell = VALUES(stat_auto_sell),
                 auto_sell_enabled = VALUES(auto_sell_enabled),
                 last_job_change = VALUES(last_job_change),
-                updated_at = VALUES(updated_at)
+                updated_at = VALUES(updated_at),
+                boost_multiplier = VALUES(boost_multiplier),
+                boost_expiry_time = VALUES(boost_expiry_time)
             """;
 
     private final DatabaseManager database;
@@ -104,6 +106,9 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
                 if (!resultSet.wasNull() && lastChange > 0) {
                     profile.setLastJobChangeAt(Instant.ofEpochMilli(lastChange));
                 }
+                // 경험치 부스트 (마이그레이션으로 추가된 컬럼)
+                profile.setBoostMultiplier(resultSet.getDouble("boost_multiplier"));
+                profile.setBoostExpiryTime(resultSet.getLong("boost_expiry_time"));
                 profile.clearDirty();
                 return Optional.of(profile);
             }
@@ -135,6 +140,8 @@ public final class JdbcPlayerJobRepository implements PlayerJobRepository {
                 statement.setLong(12, snap.lastJobChangeAt().toEpochMilli());
             }
             statement.setLong(13, Instant.now().toEpochMilli());
+            statement.setDouble(14, snap.boostMultiplier());
+            statement.setLong(15, snap.boostExpiryTime());
             statement.executeUpdate();
             // clearDirty는 snapshot() 내부에서 이미 처리됨
         }
