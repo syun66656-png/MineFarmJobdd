@@ -130,7 +130,7 @@ public final class JobMinerModule implements JobModule {
                 pickaxeValidator,
                 minerMessages
         );
-        minerJob.bind(context.getCore(, minerMessages), starterKitService, passiveEffectsService, minerSkills);
+        minerJob.bind(context.getCore(), starterKitService, passiveEffectsService, minerSkills, minerMessages);
 
         context.registerListener(new MiningListener(
                 context.getCore(),
