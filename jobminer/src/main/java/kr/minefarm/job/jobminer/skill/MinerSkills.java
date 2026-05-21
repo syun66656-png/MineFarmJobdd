@@ -15,6 +15,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 광부 스킬: 다이너마이트(리젠 광석 폭발 + {@link RegenMineRewardService}),
@@ -287,7 +289,6 @@ public final class MinerSkills implements Listener {
         if (!config.isOverclockEnabled()) return false;
 
         int jobLevel = profile.getLevel();
-        // unlock-level 사용 (1레벨 기본). max-job-level은 그대로 유지
         int unlock = config.getOverclockUnlockLevel();
         if (jobLevel < unlock || jobLevel > config.getOverclockMaxJobLevel()) {
             player.sendMessage(legacyAmpersand(config.getOverclockLevelDeniedMessage()));
@@ -299,21 +300,16 @@ public final class MinerSkills implements Listener {
         UUID id = player.getUniqueId();
         int skillLevel = profile.getStatLevel(StatType.SKILL);
 
-        // 이미 활성 중 — 80레벨 이상부터 지속시간 연장 가능 (그 미만은 쿨타임 메시지)
+        // 이미 활성 중 — 80레벨 이상에서만 확률 기반 연장 시도
         Long activeEnd = overclockActiveUntilMs.get(id);
         if (activeEnd != null && now < activeEnd) {
+            event.setCancelled(true);
             if (jobLevel < config.getOverclockExtensionUnlockLevel()) {
+                // 메카닉 미해금 — 그냥 쿨타임처럼 막음
                 player.sendMessage(legacyAmpersand(config.getOverclockCooldownMessage()));
-                event.setCancelled(true);
                 return true;
             }
-            // 지속시간 연장 (80레벨+ 메카닉)
-            long extendMs = (long) config.getOverclockExtensionTicks() * MS_PER_TICK;
-            overclockActiveUntilMs.put(id, activeEnd + extendMs);
-            clearOverclockHaste(player);
-            applyOverclockHaste(player);
-            player.sendMessage("§e[광부] §f오버클럭 지속시간 +" + (config.getOverclockExtensionTicks() / 20) + "초 연장");
-            event.setCancelled(true);
+            tryOverclockExtension(player, profile, skillLevel, activeEnd);
             return true;
         }
 
@@ -325,27 +321,127 @@ public final class MinerSkills implements Listener {
             return true;
         }
 
-        long durationMs = (long) config.getOverclockDurationTicks() * MS_PER_TICK;
-
-        // SKILL 스탯으로 쿨다운 감소
-        double reduction = resolveCooldownReduction(
+        // SKILL 스탯 기반 쿨다운 감소
+        double cdReduction = resolveCooldownReduction(
                 skillLevel,
                 config.getOverclockCooldownReductionPerSkill(),
                 config.getOverclockCooldownReductionCap()
         );
         long cooldownMs = (long) Math.max(0,
-                Math.round(config.getOverclockCooldownTicks() * (1.0 - reduction))) * MS_PER_TICK;
+                Math.round(config.getOverclockCooldownTicks() * (1.0 - cdReduction))) * MS_PER_TICK;
+
+        // SKILL 스탯 기반 지속시간 보너스
+        long durationMs = computeOverclockDurationMs(skillLevel);
 
         overclockActiveUntilMs.put(id, now + durationMs);
         overclockCooldownUntilMs.put(id, now + cooldownMs);
-        applyOverclockHaste(player);
+        applyOverclockHaste(player, durationMs);
+        playOverclockSound(player);
 
         event.setCancelled(true);
         return true;
     }
 
-    private void applyOverclockHaste(Player player) {
-        int durationTicks = config.getOverclockDurationTicks();
+    /** SKILL 스탯 적용된 오버클럭 지속시간(ms) */
+    private long computeOverclockDurationMs(int skillLevel) {
+        double bonus = resolveCooldownReduction(  // 동일 공식 — min(cap, perLevel × skill)
+                skillLevel,
+                config.getOverclockDurationBonusPerSkill(),
+                config.getOverclockDurationBonusCap()
+        );
+        long baseTicks = config.getOverclockDurationTicks();
+        long finalTicks = Math.max(0, Math.round(baseTicks * (1.0 + bonus)));
+        return finalTicks * MS_PER_TICK;
+    }
+
+    /**
+     * 오버클럭 80레벨+ 메카닉 — active 중 재사용 시 확률 판정 → 성공 시 연장.
+     * 실패 시 active/쿨다운 유지, 메시지만 표시.
+     */
+    private void tryOverclockExtension(Player player, PlayerJobProfile profile, int skillLevel, long activeEnd) {
+        UUID id = player.getUniqueId();
+
+        // 확률 = min(cap, base + perSkill × SKILL)
+        double chance = Math.min(
+                config.getOverclockExtensionChanceCap(),
+                config.getOverclockExtensionBaseChance()
+                        + config.getOverclockExtensionChancePerSkill() * skillLevel
+        );
+        if (chance < 0) chance = 0;
+
+        // 연장량(ticks) = min(cap, base + perSkill × SKILL)
+        int extTicks = Math.min(
+                config.getOverclockExtensionTicksCap(),
+                config.getOverclockExtensionBaseTicks()
+                        + config.getOverclockExtensionTicksPerSkill() * skillLevel
+        );
+        if (extTicks < 0) extTicks = 0;
+
+        double roll = ThreadLocalRandom.current().nextDouble();
+        if (roll >= chance) {
+            // 실패
+            int chancePercent = (int) Math.round(chance * 100);
+            player.sendMessage(legacyAmpersand(
+                    config.getOverclockExtensionFailureMessage()
+                            .replace("{chance}", String.valueOf(chancePercent))));
+            return;
+        }
+
+        // 성공 — 지속시간 연장 + Haste 갱신 + 사운드
+        long extendMs = (long) extTicks * MS_PER_TICK;
+        long newEnd = activeEnd + extendMs;
+        overclockActiveUntilMs.put(id, newEnd);
+        clearOverclockHaste(player);
+        applyOverclockHaste(player, newEnd - System.currentTimeMillis());
+        playOverclockSound(player);
+
+        int seconds = extTicks / 20;
+        int chancePercent = (int) Math.round(chance * 100);
+        String msg = config.getOverclockExtensionSuccessMessage()
+                .replace("{seconds}", String.valueOf(seconds))
+                .replace("{chance}", String.valueOf(chancePercent));
+        player.sendMessage(legacyAmpersand(msg));
+    }
+
+    /**
+     * 오버클럭 발동 사운드 — config.activation-sound.
+     * Paper 1.21에서 Sound가 Registry 기반으로 변경되어 NamespacedKey로 조회.
+     * 미존재/잘못된 키일 경우 player.playSound(string) fallback.
+     */
+    private void playOverclockSound(Player player) {
+        String name = config.getOverclockActivationSound();
+        if (name == null || name.isBlank()) return;
+        float vol = config.getOverclockActivationSoundVolume();
+        float pitch = config.getOverclockActivationSoundPitch();
+
+        // 1) Sound enum 이름 → Registry 조회 시도 (e.g. "ENTITY_BLAZE_SHOOT")
+        try {
+            NamespacedKey key = NamespacedKey.minecraft(
+                    name.toLowerCase().replace('_', '.').replace("entity.", "entity.")
+            );
+            Sound sound = Registry.SOUNDS.get(key);
+            if (sound != null) {
+                player.playSound(player.getLocation(), sound, vol, pitch);
+                return;
+            }
+        } catch (Throwable ignored) {}
+
+        // 2) 직접 NamespacedKey 문자열 (e.g. "minecraft:entity.blaze.shoot")
+        try {
+            String soundKey = name.contains(":") ? name :
+                    "minecraft:" + name.toLowerCase().replace('_', '.');
+            player.playSound(player.getLocation(), soundKey, vol, pitch);
+        } catch (Throwable ignored) {
+            // 마지막 fallback: Sound enum 직접 — 1.21에서도 enum 호환됨
+            try {
+                Sound fallback = Sound.valueOf(name.toUpperCase());
+                player.playSound(player.getLocation(), fallback, vol, pitch);
+            } catch (Throwable ignored2) {}
+        }
+    }
+
+    private void applyOverclockHaste(Player player, long durationMs) {
+        int durationTicks = (int) Math.max(1, durationMs / MS_PER_TICK);
         int amplifier = config.getOverclockHasteAmplifier();
         PotionEffectType haste = PotionEffectType.HASTE;
         player.addPotionEffect(new PotionEffect(

@@ -39,19 +39,40 @@ dynamite:
   cooldown-message: "&c[광부] &f다이너마이트 쿨타임: {seconds}초"
 
 # 오버클럭 (우클릭) — Haste 효과 부여
+# SKILL 스탯 효과:
+#   • 쿨다운 감소  : 1레벨당 cooldown-reduction-per-skill 만큼 감소 (최대 cap)
+#   • 지속시간 증가: 1레벨당 duration-bonus-per-skill 만큼 증가 (최대 cap)
 overclock:
   enabled: true
   unlock-level: 1                       # 1레벨부터 해금
-  cooldown-ticks: 600                   # 30초
-  duration-ticks: 200                   # 10초
+  cooldown-ticks: 600                   # 기본 30초
+  duration-ticks: 200                   # 기본 10초
   max-job-level: 999
   haste-amplifier: 1                    # Haste II
-  # SKILL 스탯 1레벨당 cooldown 감소
-  cooldown-reduction-per-skill: 0.02
-  cooldown-reduction-cap: 0.5
-  # 80레벨부터 active 중 재사용 시 지속시간 연장 메카닉 해금
+
+  # ── SKILL 스탯 보너스 ────────────────────────────────────────────────────
+  cooldown-reduction-per-skill: 0.02    # 1레벨당 cooldown -2%
+  cooldown-reduction-cap: 0.5           # 최대 -50%
+  duration-bonus-per-skill: 0.02        # 1레벨당 duration +2%
+  duration-bonus-cap: 1.0               # 최대 +100% (2배)
+
+  # ── 발동 사운드 ──────────────────────────────────────────────────────────
+  activation-sound: ENTITY_BLAZE_SHOOT  # 화염구 발사 사운드
+  activation-sound-volume: 1.0
+  activation-sound-pitch: 1.0
+
+  # ── 80레벨 메카닉: active 중 재사용 시 확률로 지속시간 연장 ──────────────
+  # SKILL 스탯에 따라 확률·연장량 모두 증가.
   extension-unlock-level: 80
-  extension-ticks: 100                  # 1회 연장량 (5초)
+  extension-base-chance: 0.5            # 기본 50% 확률
+  extension-chance-per-skill: 0.005     # SKILL 1레벨당 +0.5%p
+  extension-chance-cap: 1.0             # 최대 100%
+  extension-base-ticks: 100             # 기본 +5초
+  extension-ticks-per-skill: 2          # SKILL 1레벨당 +0.1초
+  extension-ticks-cap: 200              # 최대 +10초
+  extension-success-message: "&e[광부] &f오버클럭 &a+{seconds}초 &f연장!"
+  extension-failure-message: "&7[광부] &f연장 실패 &8({chance}%)"
+
   cooldown-message: "&c[광부] &f오버클럭 쿨타임 중입니다."
   level-denied-message: "&c[광부] &f직업 레벨이 맞지 않아 오버클럭을 사용할 수 없습니다."
 

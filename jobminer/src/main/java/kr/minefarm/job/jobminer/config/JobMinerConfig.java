@@ -494,6 +494,31 @@ public final class JobMinerConfig {
         return dynamiteCooldownTicks;
     }
 
+    /** 다이너마이트 해금 레벨 (기본 30) */
+    public int getDynamiteUnlockLevel() {
+        return config.getInt("dynamite.unlock-level", 30);
+    }
+
+    /** SKILL 스탯 1레벨당 쿨다운 감소율 (0.0~1.0) */
+    public double getDynamiteCooldownReductionPerSkill() {
+        return config.getDouble("dynamite.cooldown-reduction-per-skill", 0.02);
+    }
+
+    /** 쿨다운 감소 상한 (예: 0.5 = 최대 50% 감소) */
+    public double getDynamiteCooldownReductionCap() {
+        return config.getDouble("dynamite.cooldown-reduction-cap", 0.5);
+    }
+
+    public String getDynamiteLevelDeniedMessage() {
+        return config.getString("dynamite.level-denied-message",
+                "&c[광부] &f직업 레벨 {level} 이상부터 다이너마이트를 사용할 수 있습니다.");
+    }
+
+    public String getDynamiteCooldownMessage() {
+        return config.getString("dynamite.cooldown-message",
+                "&c[광부] &f다이너마이트 쿨타임: {seconds}초");
+    }
+
     public boolean isOverclockEnabled() {
         return overclockEnabled;
     }
@@ -524,6 +549,81 @@ public final class JobMinerConfig {
 
     public String getOverclockLevelDeniedMessage() {
         return overclockLevelDeniedMessage != null ? overclockLevelDeniedMessage : "";
+    }
+
+    // ── 오버클럭 신규 옵션들 ─────────────────────────────────────────────────
+    public int getOverclockUnlockLevel() {
+        if (config.contains("overclock.unlock-level")) {
+            return config.getInt("overclock.unlock-level", 1);
+        }
+        return getOverclockMinJobLevel();
+    }
+
+    // SKILL 스탯 효과
+    public double getOverclockCooldownReductionPerSkill() {
+        return config.getDouble("overclock.cooldown-reduction-per-skill", 0.02);
+    }
+    public double getOverclockCooldownReductionCap() {
+        return config.getDouble("overclock.cooldown-reduction-cap", 0.5);
+    }
+    public double getOverclockDurationBonusPerSkill() {
+        return config.getDouble("overclock.duration-bonus-per-skill", 0.02);
+    }
+    public double getOverclockDurationBonusCap() {
+        return config.getDouble("overclock.duration-bonus-cap", 1.0);
+    }
+
+    // 발동 사운드
+    public String getOverclockActivationSound() {
+        return config.getString("overclock.activation-sound", "ENTITY_BLAZE_SHOOT");
+    }
+    public float getOverclockActivationSoundVolume() {
+        return (float) config.getDouble("overclock.activation-sound-volume", 1.0);
+    }
+    public float getOverclockActivationSoundPitch() {
+        return (float) config.getDouble("overclock.activation-sound-pitch", 1.0);
+    }
+
+    // 80레벨 메카닉 (지속시간 연장)
+    public int getOverclockExtensionUnlockLevel() {
+        return config.getInt("overclock.extension-unlock-level", 80);
+    }
+    public double getOverclockExtensionBaseChance() {
+        return config.getDouble("overclock.extension-base-chance", 0.5);
+    }
+    public double getOverclockExtensionChancePerSkill() {
+        return config.getDouble("overclock.extension-chance-per-skill", 0.005);
+    }
+    public double getOverclockExtensionChanceCap() {
+        return config.getDouble("overclock.extension-chance-cap", 1.0);
+    }
+    public int getOverclockExtensionBaseTicks() {
+        if (config.contains("overclock.extension-base-ticks")) {
+            return config.getInt("overclock.extension-base-ticks", 100);
+        }
+        return config.getInt("overclock.extension-ticks", 100);
+    }
+    public int getOverclockExtensionTicksPerSkill() {
+        return config.getInt("overclock.extension-ticks-per-skill", 2);
+    }
+    public int getOverclockExtensionTicksCap() {
+        return config.getInt("overclock.extension-ticks-cap", 200);
+    }
+    public String getOverclockExtensionSuccessMessage() {
+        return config.getString("overclock.extension-success-message",
+                "&e[광부] &f오버클럭 &a+{seconds}초 &f연장!");
+    }
+    public String getOverclockExtensionFailureMessage() {
+        return config.getString("overclock.extension-failure-message",
+                "&7[광부] &f연장 실패 &8({chance}%)");
+    }
+
+    /** 가벼운 발걸음 해금 레벨 (기본 50) */
+    public int getLightFootstepsUnlockLevel() {
+        org.bukkit.configuration.ConfigurationSection root =
+                config.getConfigurationSection("miner-passives.light-footsteps");
+        if (root == null) return 50;
+        return root.getInt("unlock-level", 50);
     }
 
     public ConfigurationSection getStarterKitSection() {
