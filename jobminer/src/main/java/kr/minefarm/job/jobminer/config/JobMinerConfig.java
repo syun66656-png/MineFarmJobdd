@@ -25,6 +25,9 @@ public final class JobMinerConfig {
     private final FileConfiguration config;
     private final Map<Material, Integer> guaranteedDrops;
     private final List<SpecialDrop> specialDrops;
+    private final Map<Material, List<OreDrop>> oreDrops;
+    private final List<CommonDrop> commonDrops;
+    private final java.util.Set<String> passiveAllowedWorlds;
     private final Map<Material, Double> shopPrices;
     private final MineExpTable mineExpTable;
     private final boolean dynamiteEnabled;
@@ -49,6 +52,9 @@ public final class JobMinerConfig {
         this.config = YamlConfiguration.loadConfiguration(file);
         this.guaranteedDrops = loadGuaranteedDrops();
         this.specialDrops = loadSpecialDrops();
+        this.oreDrops = loadOreDrops();
+        this.commonDrops = loadCommonDrops();
+        this.passiveAllowedWorlds = loadPassiveAllowedWorlds();
         this.shopPrices = loadShopPrices();
         this.mineExpTable = loadMineExpTable();
         this.dynamiteEnabled = config.getBoolean("dynamite.enabled", false);
@@ -184,11 +190,44 @@ public final class JobMinerConfig {
         return guaranteedDrops;
     }
 
+    /** 광물별 지정 드롭 (블록 Material에 따른 드롭 목록) */
+    public java.util.List<OreDrop> getOreDropsFor(Material blockMaterial) {
+        if (blockMaterial == null) return java.util.List.of();
+        return oreDrops.getOrDefault(blockMaterial, java.util.List.of());
+    }
+
+    public java.util.Map<Material, java.util.List<OreDrop>> getAllOreDrops() {
+        return oreDrops;
+    }
+
+    /** 공통 확률 드롭 (강화석/초월석/유물 등) */
+    public java.util.List<CommonDrop> getCommonDrops() {
+        return commonDrops;
+    }
+
+    /** 광부 패시브가 적용될 월드 목록 (비어 있으면 모든 월드 허용) */
+    public java.util.Set<String> getPassiveAllowedWorlds() {
+        return passiveAllowedWorlds;
+    }
+
+    public boolean isPassiveAllowedInWorld(String worldName) {
+        if (passiveAllowedWorlds.isEmpty()) return true;
+        return passiveAllowedWorlds.contains(worldName);
+    }
+
     public List<SpecialDrop> getSpecialDrops() {
         return specialDrops;
     }
 
     public record SpecialDrop(Material material, double chance, int amount) {
+    }
+
+    /** 광물 종류별 지정 드롭 (채굴된 블록 Material에 따라 다른 드롭) */
+    public record OreDrop(Material material, int amount, String displayName, java.util.List<String> lore) {
+    }
+
+    /** 모든 광물에서 공통으로 등장하는 확률 드롭 (강화석/초월석/유물 등) */
+    public record CommonDrop(Material material, int amount, double chance, String displayName, java.util.List<String> lore) {
     }
 
     private Map<Material, Integer> loadGuaranteedDrops() {
@@ -204,6 +243,62 @@ public final class JobMinerConfig {
             }
         }
         return Collections.unmodifiableMap(map);
+    }
+
+    private Map<Material, List<OreDrop>> loadOreDrops() {
+        ConfigurationSection section = config.getConfigurationSection("ore-drops");
+        if (section == null) return Map.of();
+        Map<Material, List<OreDrop>> map = new EnumMap<>(Material.class);
+        for (String key : section.getKeys(false)) {
+            Material ore = parseMaterial(key);
+            if (ore == null) continue;
+            List<?> rawList = section.getList(key);
+            if (rawList == null || rawList.isEmpty()) continue;
+            List<OreDrop> drops = new ArrayList<>();
+            for (Object obj : rawList) {
+                if (!(obj instanceof Map<?, ?> entry)) continue;
+                Material mat = parseMaterial(String.valueOf(entry.get("material")));
+                if (mat == null) continue;
+                int amount = entry.get("amount") instanceof Number n ? Math.max(1, n.intValue()) : 1;
+                String name = entry.get("name") instanceof String s ? s : null;
+                @SuppressWarnings("unchecked")
+                List<String> lore = entry.get("lore") instanceof List<?> l
+                        ? l.stream().map(String::valueOf).collect(Collectors.toList())
+                        : List.of();
+                drops.add(new OreDrop(mat, amount, name, lore));
+            }
+            if (!drops.isEmpty()) map.put(ore, List.copyOf(drops));
+        }
+        return Collections.unmodifiableMap(map);
+    }
+
+    private List<CommonDrop> loadCommonDrops() {
+        List<?> rawList = config.getList("common-drops");
+        if (rawList == null || rawList.isEmpty()) return List.of();
+        List<CommonDrop> list = new ArrayList<>();
+        for (Object obj : rawList) {
+            if (!(obj instanceof Map<?, ?> entry)) continue;
+            Material mat = parseMaterial(String.valueOf(entry.get("material")));
+            if (mat == null) continue;
+            int amount = entry.get("amount") instanceof Number n ? Math.max(1, n.intValue()) : 1;
+            double chance = entry.get("chance") instanceof Number c ? c.doubleValue() : 0.0;
+            if (chance <= 0.0) continue;
+            String name = entry.get("name") instanceof String s ? s : null;
+            @SuppressWarnings("unchecked")
+            List<String> lore = entry.get("lore") instanceof List<?> l
+                    ? l.stream().map(String::valueOf).collect(Collectors.toList())
+                    : List.of();
+            list.add(new CommonDrop(mat, amount, chance, name, lore));
+        }
+        return List.copyOf(list);
+    }
+
+    private java.util.Set<String> loadPassiveAllowedWorlds() {
+        ConfigurationSection root = config.getConfigurationSection("miner-passives");
+        if (root == null) return java.util.Set.of();
+        List<String> worlds = root.getStringList("allowed-worlds");
+        if (worlds == null || worlds.isEmpty()) return java.util.Set.of();
+        return java.util.Set.copyOf(worlds);
     }
 
     private List<SpecialDrop> loadSpecialDrops() {

@@ -43,6 +43,11 @@ public final class MinerPassiveEffectsService {
             clear(player);
             return;
         }
+        // ★ 허용 월드 체크 — 다른 월드에 있으면 효과 제거
+        if (!minerConfig.isPassiveAllowedInWorld(player.getWorld().getName())) {
+            clear(player);
+            return;
+        }
 
         ConfigurationSection root = minerConfig.getMinerPassivesSection();
         ConfigurationSection lightFootsteps = root != null

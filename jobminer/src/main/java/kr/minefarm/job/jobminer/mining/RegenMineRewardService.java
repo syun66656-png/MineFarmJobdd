@@ -50,11 +50,12 @@ public final class RegenMineRewardService {
     }
 
     public void deliverRewards(Player player, PlayerJobProfile profile, Block block, RegenBlockEntry entry) {
-        // ① 기본 드롭 생성
-        List<ItemStack> drops = dropResolver.resolveMiningDrops();
+        // ① 채굴된 블록 Material에 맞는 드롭 생성 (광물별 + 공통 확률)
+        org.bukkit.Material blockType = block.getType();
+        List<ItemStack> drops = dropResolver.resolveMiningDrops(blockType);
 
-        // ② RELIC 보너스 드롭 — guaranteed 드롭에서만 추가 발동
-        List<ItemStack> guaranteedOnly = dropResolver.resolveGuaranteedDropsOnly();
+        // ② RELIC 보너스 드롭 — 광물별 지정 드롭에서만 추가 발동
+        List<ItemStack> guaranteedOnly = dropResolver.resolveGuaranteedDropsOnly(blockType);
         List<ItemStack> relicBonus = relicStatService.rollBonusDrops(profile, guaranteedOnly);
         if (!relicBonus.isEmpty()) {
             List<ItemStack> combined = new ArrayList<>(drops);

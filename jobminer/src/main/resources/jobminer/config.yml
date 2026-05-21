@@ -82,6 +82,13 @@ starter-kit:
 
 # 접속·직업 선택·스탯 투자 후 DB 프로필 반영 시 적용 (메인 스레드)
 miner-passives:
+  # 패시브(가벼운 발걸음 등)가 적용될 월드 목록
+  # 비어 있으면 모든 월드에 적용. 광산 전용 월드를 지정하면 다른 월드에서는 자동으로 효과 제거됨.
+  allowed-worlds: []
+  # 예시:
+  # allowed-worlds:
+  #   - "mining_world"
+  #   - "nether_mining"
   light-footsteps:
     enabled: true
     # amplifier = min(cap, base-amplifier + SKILL스탯×per-skill-level + 직업레벨×per-job-level), 0=이속 I
@@ -139,18 +146,89 @@ shop-prices:
   DEEPSLATE_LAPIS_ORE: 7
   DEEPSLATE_COPPER_ORE: 11
 
-# 리젠 광산 채굴 시 100% 추가 지급 (Material: amount)
-guaranteed-drops:
-  RAW_IRON: 1
+# ─────────────────────────────────────────────────────────────────────────────
+# 광물별 지정 드롭 (채굴된 블록 종류에 따라 다른 드롭 100% 지급)
+# 형식:
+#   ore-drops:
+#     <블록 Material>:
+#       - { material: <드롭 Material>, amount: <수량>, name: "<&색 이름>", lore: ["<&색 설명>"] }
+# name/lore는 선택. 이름·설명을 생략하면 기본 아이템.
+# ─────────────────────────────────────────────────────────────────────────────
+ore-drops:
+  COAL_ORE:
+    - { material: COAL, amount: 1 }
+  DEEPSLATE_COAL_ORE:
+    - { material: COAL, amount: 2 }
+  IRON_ORE:
+    - { material: RAW_IRON, amount: 1 }
+  DEEPSLATE_IRON_ORE:
+    - { material: RAW_IRON, amount: 2 }
+  COPPER_ORE:
+    - { material: RAW_COPPER, amount: 1 }
+  DEEPSLATE_COPPER_ORE:
+    - { material: RAW_COPPER, amount: 2 }
+  GOLD_ORE:
+    - { material: RAW_GOLD, amount: 1 }
+  DEEPSLATE_GOLD_ORE:
+    - { material: RAW_GOLD, amount: 2 }
+  LAPIS_ORE:
+    - { material: LAPIS_LAZULI, amount: 4 }
+  DEEPSLATE_LAPIS_ORE:
+    - { material: LAPIS_LAZULI, amount: 6 }
+  REDSTONE_ORE:
+    - { material: REDSTONE, amount: 4 }
+  DEEPSLATE_REDSTONE_ORE:
+    - { material: REDSTONE, amount: 6 }
+  DIAMOND_ORE:
+    - { material: DIAMOND, amount: 1 }
+  DEEPSLATE_DIAMOND_ORE:
+    - { material: DIAMOND, amount: 1 }
+  EMERALD_ORE:
+    - { material: EMERALD, amount: 1 }
+  DEEPSLATE_EMERALD_ORE:
+    - { material: EMERALD, amount: 1 }
+  NETHER_GOLD_ORE:
+    - { material: GOLD_NUGGET, amount: 6 }
+  NETHER_QUARTZ_ORE:
+    - { material: QUARTZ, amount: 1 }
+  ANCIENT_DEBRIS:
+    - { material: ANCIENT_DEBRIS, amount: 1 }
 
-# 확률 드롭 (Material → chance 0.0~1.0, amount)
-special-drops:
-  DIAMOND:
-    chance: 0.02
+# ─────────────────────────────────────────────────────────────────────────────
+# 모든 광물에서 공통으로 등장하는 확률 드롭 (강화석/초월석/유물 등)
+# 형식:
+#   - { material: <Material>, amount: <수량>, chance: <0.0~1.0>, name: "<이름>", lore: ["<설명>"] }
+# 광물별 ore-drops 와 함께 추가로 굴려진다.
+# ─────────────────────────────────────────────────────────────────────────────
+common-drops:
+  - material: PRISMARINE_SHARD
     amount: 1
-  EMERALD:
+    chance: 0.05
+    name: "&b강화석"
+    lore:
+      - "&7장비 강화에 사용되는 결정"
+  - material: NETHER_STAR
+    amount: 1
     chance: 0.01
+    name: "&5&l초월석"
+    lore:
+      - "&7최상급 강화에 필요한 보석"
+      - "&8매우 희귀"
+  - material: HEART_OF_THE_SEA
     amount: 1
+    chance: 0.001
+    name: "&6&l유물"
+    lore:
+      - "&7전설의 광부만이 만나는 보물"
+      - "&8극희귀"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# (Deprecated, 호환 유지) 광물 무관 100% 드롭 — 가능하면 ore-drops 사용 권장
+# ─────────────────────────────────────────────────────────────────────────────
+guaranteed-drops: {}
+
+# (Deprecated, 호환 유지) 광물 무관 확률 드롭 — 가능하면 common-drops 사용 권장
+special-drops: {}
 
 # 광부 상점 GUI (/광부상점 명령어)
 shop-gui:

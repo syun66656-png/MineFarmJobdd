@@ -1,8 +1,11 @@
 package kr.minefarm.job.jobminer.mining;
 
 import kr.minefarm.job.jobminer.config.JobMinerConfig;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,9 +13,17 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 지정(100%) · 특수(확률) 드롭 해석.
+ * 채굴 드롭 해석.
+ * <ul>
+ *   <li>{@code ore-drops}: 광물 Material마다 다른 지정 드롭</li>
+ *   <li>{@code common-drops}: 모든 광물에서 공통 확률 드롭 (강화석/초월석/유물)</li>
+ *   <li>(deprecated) {@code guaranteed-drops}: 광물 무관 100% 드롭 — 호환 유지</li>
+ *   <li>(deprecated) {@code special-drops}: 광물 무관 확률 드롭 — 호환 유지</li>
+ * </ul>
  */
 public final class MineDropResolver {
+
+    private static final LegacyComponentSerializer AMP = LegacyComponentSerializer.legacyAmpersand();
 
     private final JobMinerConfig config;
 
@@ -20,17 +31,30 @@ public final class MineDropResolver {
         this.config = config;
     }
 
-    /**
-     * 리젠 채굴 시 지급할 커스텀 드롭 전체 목록
-     * (guaranteed + special 확률 드롭).
-     */
-    public List<ItemStack> resolveMiningDrops() {
+    /** 채굴된 블록 Material에 따른 드롭 + 공통 확률 드롭 + (deprecated) 전역 드롭 */
+    public List<ItemStack> resolveMiningDrops(Material blockMaterial) {
         List<ItemStack> items = new ArrayList<>();
+
+        // ① 광물별 지정 드롭
+        for (JobMinerConfig.OreDrop drop : config.getOreDropsFor(blockMaterial)) {
+            items.add(buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore()));
+        }
+
+        // ② 공통 확률 드롭 (강화석/초월석/유물)
+        for (JobMinerConfig.CommonDrop drop : config.getCommonDrops()) {
+            if (ThreadLocalRandom.current().nextDouble() < drop.chance()) {
+                items.add(buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore()));
+            }
+        }
+
+        // ③ (호환) 광물 무관 guaranteed-drops
         for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
             if (entry.getValue() > 0) {
                 items.add(new ItemStack(entry.getKey(), entry.getValue()));
             }
         }
+
+        // ④ (호환) 광물 무관 special-drops
         for (JobMinerConfig.SpecialDrop special : config.getSpecialDrops()) {
             if (ThreadLocalRandom.current().nextDouble() < special.chance()) {
                 items.add(new ItemStack(special.material(), special.amount()));
@@ -40,11 +64,14 @@ public final class MineDropResolver {
     }
 
     /**
-     * guaranteed-drops 만 반환 (RELIC 보너스 드롭 계산 전용).
-     * special-drops 는 포함하지 않는다.
+     * 광물별 지정 드롭만 반환 (RELIC 보너스 드롭 계산 전용).
+     * 공통 확률 드롭은 보너스 대상이 아님.
      */
-    public List<ItemStack> resolveGuaranteedDropsOnly() {
+    public List<ItemStack> resolveGuaranteedDropsOnly(Material blockMaterial) {
         List<ItemStack> items = new ArrayList<>();
+        for (JobMinerConfig.OreDrop drop : config.getOreDropsFor(blockMaterial)) {
+            items.add(buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore()));
+        }
         for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
             if (entry.getValue() > 0) {
                 items.add(new ItemStack(entry.getKey(), entry.getValue()));
@@ -53,10 +80,24 @@ public final class MineDropResolver {
         return items;
     }
 
-    /**
-     * 자동판매 가격 산정용 — 전체 드롭 목록 반환.
-     */
-    public List<ItemStack> resolveDropsForPricing() {
-        return resolveMiningDrops();
+    private static ItemStack buildItem(Material material, int amount, String displayName, List<String> lore) {
+        ItemStack stack = new ItemStack(material, Math.max(1, amount));
+        if ((displayName == null || displayName.isBlank()) && (lore == null || lore.isEmpty())) {
+            return stack;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return stack;
+        if (displayName != null && !displayName.isBlank()) {
+            meta.displayName(AMP.deserialize(displayName));
+        }
+        if (lore != null && !lore.isEmpty()) {
+            List<Component> components = new ArrayList<>();
+            for (String line : lore) {
+                components.add(AMP.deserialize(line == null ? "" : line));
+            }
+            meta.lore(components);
+        }
+        stack.setItemMeta(meta);
+        return stack;
     }
 }

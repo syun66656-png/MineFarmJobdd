@@ -14,6 +14,7 @@ import kr.minefarm.job.jobminer.kit.StarterKitService;
 import kr.minefarm.job.jobminer.listener.MiningListener;
 import kr.minefarm.job.jobminer.listener.RegenProtectionListener;
 import kr.minefarm.job.jobminer.listener.RegenWandListener;
+import kr.minefarm.job.jobminer.listener.MinerWorldChangeListener;
 import kr.minefarm.job.jobminer.mining.MineDropResolver;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
@@ -136,6 +137,7 @@ public final class JobMinerModule implements JobModule {
                 pickaxeValidator
         ));
         context.registerListener(new RegenWandListener(regenWandService, regenBlockRegistry));
+        context.registerListener(new MinerWorldChangeListener(context.getCore(), passiveEffectsService));
 
         registerCommand(plugin, "광산완드", "리젠 블록 관리 완드 지급",
                 new RegenWandCommand(regenWandService), null, "minefarmjob.admin");
