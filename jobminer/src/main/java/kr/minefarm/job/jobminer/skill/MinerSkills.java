@@ -215,14 +215,17 @@ public final class MinerSkills implements Listener {
             PlayerJobProfile profile,
             ItemStack hand
     ) {
-        if (!config.isDynamiteEnabled()) {
-            return false;
-        }
-        if (player.getCooldown(config.getDynamiteMaterial()) > 0) {
-            return false;
-        }
+        if (!config.isDynamiteEnabled()) return false;
+        // 다이너마이트 아이템 매칭 먼저 — 아이템이 아니면 조용히 통과 (오버클럭에 양보)
         if (!matchesSkillItem(hand, config.getDynamiteMaterial(), config.getDynamiteNameKeyword())) {
             return false;
+        }
+        // 아이템 일치 — 이제부터는 다이너마이트 시도로 간주, 실패 시 메시지로 알림
+        if (player.getCooldown(config.getDynamiteMaterial()) > 0) {
+            int remaining = player.getCooldown(config.getDynamiteMaterial());
+            player.sendMessage("§c[광산] §f다이너마이트 쿨타임: " + (remaining / 20) + "초");
+            event.setCancelled(true);
+            return true;
         }
 
         Location spawnLoc = resolveSpawnLocation(player);
@@ -265,12 +268,11 @@ public final class MinerSkills implements Listener {
             PlayerJobProfile profile,
             ItemStack hand
     ) {
-        if (!config.isOverclockEnabled()) {
-            return false;
-        }
+        if (!config.isOverclockEnabled()) return false;
         if (!matchesSkillItem(hand, config.getOverclockMaterial(), config.getOverclockNameKeyword())) {
             return false;
         }
+        // 아이템 일치 — 이제부터는 오버클럭 시도로 간주, 실패 사유를 메시지로 안내
 
         int jobLevel = profile.getLevel();
         if (jobLevel < config.getOverclockMinJobLevel() || jobLevel > config.getOverclockMaxJobLevel()) {

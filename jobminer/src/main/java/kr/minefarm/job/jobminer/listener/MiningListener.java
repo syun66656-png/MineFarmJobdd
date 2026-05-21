@@ -64,6 +64,13 @@ public final class MiningListener implements Listener {
         RegenBlockEntry entry = regenBlockRegistry.getEntry(block);
         if (entry == null) return;
 
+        // ★ 대체 블록(조약돌 등) 상태 = 복구 대기 중 → 보상 지급 거부
+        //   block.getType() 이 등록 시 원본 Material과 다르면 = 현재 조약돌로 채워진 상태
+        if (block.getType() != entry.getMaterial()) {
+            event.setCancelled(true);
+            return;
+        }
+
         event.setDropItems(false);
         rewardService.deliverRewards(player, profile, block, entry);
     }

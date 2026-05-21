@@ -56,6 +56,18 @@ public final class RegenProtectionListener implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
         if (!regenBlockRegistry.isRegenBlock(block)) return;
+        // ★ 리전 밖이면 광산 시스템 비활성 — 일반 블록처럼 취급 (보호도, 보상도 X)
+        if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) return;
+
+        // ★ 대체 블록(조약돌 등) 상태 = 복구 대기 중 → 누가 캐든 차단 (드롭 중복 방지)
+        RegenBlockEntry entry = regenBlockRegistry.getEntry(block);
+        if (entry != null && block.getType() != entry.getMaterial()) {
+            event.setCancelled(true);
+            sendWarnOnce(event.getPlayer(),
+                    "§c[광산] §f광물이 복구 중입니다. 잠시 후 다시 시도하세요.");
+            return;
+        }
+
         if (canMineRegenBlock(event.getPlayer())) return;
 
         event.setCancelled(true);
