@@ -94,7 +94,7 @@ public final class JobService {
         profileService.saveAsync(profile).handle((ignored, throwable) -> {
             if (throwable != null) {
                 plugin.getLogger().log(Level.WARNING,
-                        "[JobCore] saveAsync(offline) failed for " + profile.getPlayerUuid(),
+                        "[JobCore] saveAsync(offline) failed for " + profile.getUuid(),
                         throwable);
                 done.complete(false);
             } else {
