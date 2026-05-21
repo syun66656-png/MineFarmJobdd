@@ -37,13 +37,13 @@ public final class MineDropResolver {
 
         // ① 광물별 지정 드롭
         for (JobMinerConfig.OreDrop drop : config.getOreDropsFor(blockMaterial)) {
-            items.add(buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore()));
+            items.add(buildOreDrop(drop));
         }
 
         // ② 공통 확률 드롭 (강화석/초월석/유물)
         for (JobMinerConfig.CommonDrop drop : config.getCommonDrops()) {
             if (ThreadLocalRandom.current().nextDouble() < drop.chance()) {
-                items.add(buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore()));
+                items.add(buildCommonDrop(drop));
             }
         }
 
@@ -70,7 +70,7 @@ public final class MineDropResolver {
     public List<ItemStack> resolveGuaranteedDropsOnly(Material blockMaterial) {
         List<ItemStack> items = new ArrayList<>();
         for (JobMinerConfig.OreDrop drop : config.getOreDropsFor(blockMaterial)) {
-            items.add(buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore()));
+            items.add(buildOreDrop(drop));
         }
         for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
             if (entry.getValue() > 0) {
@@ -80,22 +80,41 @@ public final class MineDropResolver {
         return items;
     }
 
-    private static ItemStack buildItem(Material material, int amount, String displayName, List<String> lore) {
+    /** OreDrop / CommonDrop 공통: customModelData 포함 ItemStack 생성 */
+    public static ItemStack buildOreDrop(JobMinerConfig.OreDrop drop) {
+        return buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore(), drop.customModelData());
+    }
+
+    public static ItemStack buildCommonDrop(JobMinerConfig.CommonDrop drop) {
+        return buildItem(drop.material(), drop.amount(), drop.displayName(), drop.lore(), drop.customModelData());
+    }
+
+    private static ItemStack buildItem(
+            Material material,
+            int amount,
+            String displayName,
+            List<String> lore,
+            Integer customModelData
+    ) {
         ItemStack stack = new ItemStack(material, Math.max(1, amount));
-        if ((displayName == null || displayName.isBlank()) && (lore == null || lore.isEmpty())) {
-            return stack;
-        }
+        boolean hasName = displayName != null && !displayName.isBlank();
+        boolean hasLore = lore != null && !lore.isEmpty();
+        boolean hasCmd = customModelData != null && customModelData > 0;
+        if (!hasName && !hasLore && !hasCmd) return stack;
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) return stack;
-        if (displayName != null && !displayName.isBlank()) {
+        if (hasName) {
             meta.displayName(AMP.deserialize(displayName));
         }
-        if (lore != null && !lore.isEmpty()) {
+        if (hasLore) {
             List<Component> components = new ArrayList<>();
             for (String line : lore) {
                 components.add(AMP.deserialize(line == null ? "" : line));
             }
             meta.lore(components);
+        }
+        if (hasCmd) {
+            meta.setCustomModelData(customModelData);
         }
         stack.setItemMeta(meta);
         return stack;

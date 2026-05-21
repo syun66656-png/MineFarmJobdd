@@ -32,6 +32,15 @@ public final class MineSellCalculator {
         if (stack == null || stack.getType().isAir()) {
             return 0D;
         }
+        // ore-drop / common-drop 매칭 (custom-model-data + name) 우선 시도
+        double oreDropUnit = config.findShopPriceForItem(stack);
+        if (oreDropUnit > 0) {
+            double base = oreDropUnit * stack.getAmount();
+            double bonus = base * config.getSellBonusMultiplier() * sellStatLevel;
+            return base + bonus;
+        }
+        if (oreDropUnit == 0) return 0D; // ore-drop에 명시적으로 미판매 지정된 아이템
+        // 매칭 실패 → shop-prices Material 기반 fallback
         return calculateTotalPrice(stack.getType(), stack.getAmount(), sellStatLevel);
     }
 

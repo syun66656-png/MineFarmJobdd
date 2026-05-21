@@ -207,6 +207,66 @@ public final class JobMinerConfig {
         return commonDrops;
     }
 
+    /**
+     * 인벤토리 ItemStack과 매칭되는 ore-drop/common-drop의 단가 반환.
+     * 매칭 기준: Material + customModelData + displayName(평문).
+     * 매칭 안 되면 -1 반환. 0은 "매칭되지만 미판매".
+     */
+    public double findShopPriceForItem(org.bukkit.inventory.ItemStack stack) {
+        if (stack == null || stack.getType() == Material.AIR) return -1;
+        Material mat = stack.getType();
+        Integer cmd = extractCustomModelData(stack);
+        String plain = extractPlainName(stack);
+
+        for (java.util.List<OreDrop> list : oreDrops.values()) {
+            for (OreDrop d : list) {
+                if (d.material() != mat) continue;
+                if (!matches(d.customModelData(), cmd)) continue;
+                if (!matchesName(d.displayName(), plain)) continue;
+                return d.shopPrice();
+            }
+        }
+        for (CommonDrop d : commonDrops) {
+            if (d.material() != mat) continue;
+            if (!matches(d.customModelData(), cmd)) continue;
+            if (!matchesName(d.displayName(), plain)) continue;
+            return d.shopPrice();
+        }
+        return -1;
+    }
+
+    private static boolean matches(Integer a, Integer b) {
+        if (a == null && b == null) return true;
+        if (a == null || b == null) return false;
+        return a.intValue() == b.intValue();
+    }
+
+    private static boolean matchesName(String configDisplay, String itemPlain) {
+        boolean noConfig = configDisplay == null || configDisplay.isBlank();
+        boolean noItem = itemPlain == null || itemPlain.isBlank();
+        if (noConfig && noItem) return true;
+        if (noConfig || noItem) return false;
+        // config는 &색코드 포함 가능 → plain 비교
+        String configPlain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand().deserialize(configDisplay));
+        return configPlain.equals(itemPlain);
+    }
+
+    private static Integer extractCustomModelData(org.bukkit.inventory.ItemStack stack) {
+        if (!stack.hasItemMeta()) return null;
+        org.bukkit.inventory.meta.ItemMeta meta = stack.getItemMeta();
+        if (meta == null || !meta.hasCustomModelData()) return null;
+        return meta.getCustomModelData();
+    }
+
+    private static String extractPlainName(org.bukkit.inventory.ItemStack stack) {
+        if (!stack.hasItemMeta()) return null;
+        org.bukkit.inventory.meta.ItemMeta meta = stack.getItemMeta();
+        if (meta == null || !meta.hasDisplayName()) return null;
+        return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(meta.displayName());
+    }
+
     /** 광부 패시브가 적용될 WorldGuard 리전 ID 목록 (비어 있으면 제한 없음 → 모든 곳에서 적용) */
     public java.util.Set<String> getPassiveAllowedRegions() {
         // worldguard.allowed-regions 가 우선. 비어 있으면 miner-passives.allowed-regions(레거시).
@@ -229,12 +289,30 @@ public final class JobMinerConfig {
     public record SpecialDrop(Material material, double chance, int amount) {
     }
 
-    /** 광물 종류별 지정 드롭 (채굴된 블록 Material에 따라 다른 드롭) */
-    public record OreDrop(Material material, int amount, String displayName, java.util.List<String> lore) {
+    /**
+     * 광물 종류별 지정 드롭.
+     * customModelData: null이면 미적용. shopPrice: 0이면 광부상점에서 미판매.
+     */
+    public record OreDrop(
+            Material material,
+            int amount,
+            String displayName,
+            java.util.List<String> lore,
+            Integer customModelData,
+            double shopPrice
+    ) {
     }
 
     /** 모든 광물에서 공통으로 등장하는 확률 드롭 (강화석/초월석/유물 등) */
-    public record CommonDrop(Material material, int amount, double chance, String displayName, java.util.List<String> lore) {
+    public record CommonDrop(
+            Material material,
+            int amount,
+            double chance,
+            String displayName,
+            java.util.List<String> lore,
+            Integer customModelData,
+            double shopPrice
+    ) {
     }
 
     private Map<Material, Integer> loadGuaranteedDrops() {
@@ -272,7 +350,9 @@ public final class JobMinerConfig {
                 List<String> lore = entry.get("lore") instanceof List<?> l
                         ? l.stream().map(String::valueOf).collect(Collectors.toList())
                         : List.of();
-                drops.add(new OreDrop(mat, amount, name, lore));
+                Integer cmd = readCustomModelData(entry.get("custom-model-data"));
+                double price = entry.get("shop-price") instanceof Number p ? p.doubleValue() : 0.0;
+                drops.add(new OreDrop(mat, amount, name, lore, cmd, price));
             }
             if (!drops.isEmpty()) map.put(ore, List.copyOf(drops));
         }
@@ -295,9 +375,19 @@ public final class JobMinerConfig {
             List<String> lore = entry.get("lore") instanceof List<?> l
                     ? l.stream().map(String::valueOf).collect(Collectors.toList())
                     : List.of();
-            list.add(new CommonDrop(mat, amount, chance, name, lore));
+            Integer cmd = readCustomModelData(entry.get("custom-model-data"));
+            double price = entry.get("shop-price") instanceof Number p ? p.doubleValue() : 0.0;
+            list.add(new CommonDrop(mat, amount, chance, name, lore, cmd, price));
         }
         return List.copyOf(list);
+    }
+
+    private static Integer readCustomModelData(Object raw) {
+        if (raw instanceof Number n) {
+            int v = n.intValue();
+            return v > 0 ? v : null;
+        }
+        return null;
     }
 
     private java.util.Set<String> loadPassiveAllowedRegions() {

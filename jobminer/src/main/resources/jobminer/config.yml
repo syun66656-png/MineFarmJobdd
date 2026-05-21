@@ -165,8 +165,15 @@ shop-prices:
 # 형식:
 #   ore-drops:
 #     <블록 Material>:
-#       - { material: <드롭 Material>, amount: <수량>, name: "<&색 이름>", lore: ["<&색 설명>"] }
-# name/lore는 선택. 이름·설명을 생략하면 기본 아이템.
+#       - material: <드롭 Material>
+#         amount: <수량>
+#         name: "<&색 이름>"           # 선택
+#         lore: ["<&색 설명>"]         # 선택
+#         custom-model-data: <번호>    # 선택 (리소스팩 모델 연동)
+#         shop-price: <단가>           # 선택 — 광부상점 단가 (없거나 0이면 shop-prices의 Material 단가 fallback)
+#
+# 광부상점 매칭은 (material + custom-model-data + name) 기준.
+# 즉 동일 Material이라도 custom-model-data 또는 name이 다르면 별개 아이템.
 # ─────────────────────────────────────────────────────────────────────────────
 ore-drops:
   COAL_ORE:
@@ -194,9 +201,22 @@ ore-drops:
   DEEPSLATE_REDSTONE_ORE:
     - { material: REDSTONE, amount: 6 }
   DIAMOND_ORE:
-    - { material: DIAMOND, amount: 1 }
+    # 예시: 커스텀 모델 + 광부상점 단가 매칭
+    - material: DIAMOND
+      amount: 1
+      name: "&b&l반짝이는 다이아"
+      lore:
+        - "&7깊은 광맥에서만 채굴됨"
+      custom-model-data: 1001
+      shop-price: 150
   DEEPSLATE_DIAMOND_ORE:
-    - { material: DIAMOND, amount: 1 }
+    - material: DIAMOND
+      amount: 1
+      name: "&b&l반짝이는 다이아"
+      lore:
+        - "&7깊은 광맥에서만 채굴됨"
+      custom-model-data: 1001
+      shop-price: 160
   EMERALD_ORE:
     - { material: EMERALD, amount: 1 }
   DEEPSLATE_EMERALD_ORE:
@@ -210,8 +230,14 @@ ore-drops:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 모든 광물에서 공통으로 등장하는 확률 드롭 (강화석/초월석/유물 등)
-# 형식:
-#   - { material: <Material>, amount: <수량>, chance: <0.0~1.0>, name: "<이름>", lore: ["<설명>"] }
+# 형식 (ore-drops와 동일 — custom-model-data, shop-price 지원):
+#   - material: <Material>
+#     amount: <수량>
+#     chance: <0.0~1.0>
+#     name: "<이름>"             # 선택
+#     lore: ["<설명>"]           # 선택
+#     custom-model-data: <번호>   # 선택
+#     shop-price: <단가>          # 선택
 # 광물별 ore-drops 와 함께 추가로 굴려진다.
 # ─────────────────────────────────────────────────────────────────────────────
 common-drops:
@@ -221,6 +247,8 @@ common-drops:
     name: "&b강화석"
     lore:
       - "&7장비 강화에 사용되는 결정"
+    custom-model-data: 2001
+    shop-price: 50
   - material: NETHER_STAR
     amount: 1
     chance: 0.01
@@ -228,6 +256,8 @@ common-drops:
     lore:
       - "&7최상급 강화에 필요한 보석"
       - "&8매우 희귀"
+    custom-model-data: 2002
+    shop-price: 500
   - material: HEART_OF_THE_SEA
     amount: 1
     chance: 0.001
@@ -235,6 +265,8 @@ common-drops:
     lore:
       - "&7전설의 광부만이 만나는 보물"
       - "&8극희귀"
+    custom-model-data: 2003
+    shop-price: 5000
 
 # ─────────────────────────────────────────────────────────────────────────────
 # (Deprecated, 호환 유지) 광물 무관 100% 드롭 — 가능하면 ore-drops 사용 권장

@@ -78,46 +78,64 @@ public final class MinerShopService {
     }
 
     /**
-     * 인벤토리에서 가격 있는 모든 광석을 한 번에 판매한다.
+     * 인벤토리에서 가격 있는 모든 아이템(ore-drop 커스텀 아이템 포함)을 한 번에 판매한다.
+     * <p>
+     * 매칭 우선순위:
+     *   1. ore-drops / common-drops 의 (material + custom-model-data + name) 매칭 → shop-price 사용
+     *   2. 매칭 실패 시 shop-prices 의 Material 기반 단가
      */
     public BulkSellResult sellAllPriced(Player player, PlayerJobProfile profile) {
         int sellStat = profile.getStatLevel(StatType.SELL);
 
-        // Material별로 수량 집계
-        Map<Material, Integer> amounts = new LinkedHashMap<>();
+        List<ItemStack> toRemove = new ArrayList<>();
+        Map<Material, Integer> amountsForResult = new LinkedHashMap<>();
+        double grand = 0.0;
+
         for (ItemStack stack : player.getInventory().getContents()) {
             if (stack == null || stack.getType().isAir()) continue;
-            double price = config.getShopBasePrice(stack.getType());
-            if (price <= 0) continue;
-            amounts.merge(stack.getType(), stack.getAmount(), Integer::sum);
+
+            double unitBase = resolveUnitPrice(stack);
+            if (unitBase <= 0) continue;
+
+            int amount = stack.getAmount();
+            double total = unitBase * amount * (1.0 + config.getSellBonusMultiplier() * sellStat);
+
+            grand += total;
+            amountsForResult.merge(stack.getType(), amount, Integer::sum);
+            toRemove.add(stack);
         }
 
-        if (amounts.isEmpty()) {
+        if (toRemove.isEmpty()) {
             return new BulkSellResult(0, 0.0, List.of());
         }
 
-        double grand = 0.0;
-        List<SellResult> results = new ArrayList<>();
-        for (Map.Entry<Material, Integer> entry : amounts.entrySet()) {
-            double price = calculator.calculateTotalPrice(entry.getKey(), entry.getValue(), sellStat);
-            grand += price;
-            results.add(SellResult.success(entry.getKey(), entry.getValue(), price));
-        }
-
         if (!economy.deposit(player, grand)) {
-            return new BulkSellResult(amounts.size(), 0.0, List.of());
+            return new BulkSellResult(amountsForResult.size(), 0.0, List.of());
         }
 
-        // 가격 있는 아이템 전체 제거
-        for (Material mat : amounts.keySet()) {
-            for (ItemStack stack : player.getInventory().getContents()) {
-                if (stack != null && stack.getType() == mat) {
-                    player.getInventory().remove(stack);
-                }
-            }
+        for (ItemStack stack : toRemove) {
+            player.getInventory().remove(stack);
         }
         player.updateInventory();
-        return new BulkSellResult(amounts.size(), grand, results);
+
+        List<SellResult> results = new ArrayList<>();
+        for (Map.Entry<Material, Integer> entry : amountsForResult.entrySet()) {
+            results.add(SellResult.success(entry.getKey(), entry.getValue(), 0.0));
+        }
+        return new BulkSellResult(amountsForResult.size(), grand, results);
+    }
+
+    /**
+     * 인벤토리 ItemStack의 단가 결정 (ore-drop 우선, Material fallback).
+     * 반환 값은 SELL스탯 적용 전 base 단가.
+     */
+    private double resolveUnitPrice(ItemStack stack) {
+        // 1. ore-drop / common-drop 매칭 (커스텀 모델·이름 포함)
+        double oreDropPrice = config.findShopPriceForItem(stack);
+        if (oreDropPrice > 0) return oreDropPrice;
+        if (oreDropPrice == 0) return 0; // 매칭됐지만 미판매로 명시
+        // 2. shop-prices Material 기준 fallback
+        return config.getShopBasePrice(stack.getType());
     }
 
     /**
