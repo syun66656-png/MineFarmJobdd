@@ -3,6 +3,7 @@ package kr.minefarm.job.jobminer.skill;
 import kr.minefarm.job.jobcore.api.JobCoreAPI;
 import kr.minefarm.job.jobcore.domain.JobId;
 import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
+import kr.minefarm.job.jobcore.domain.StatType;
 import kr.minefarm.job.jobminer.config.JobMinerConfig;
 import kr.minefarm.job.jobminer.mining.MineOreMaterials;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
@@ -12,7 +13,6 @@ import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import kr.minefarm.job.jobminer.mining.RegenMineRewardService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -34,7 +34,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -111,10 +110,11 @@ public final class MinerSkills implements Listener {
     /**
      * 광부 스킬 발동 — 광부 곡괭이가 트리거.
      * <ul>
-     *   <li>우클릭 (sneak X) → 오버클럭</li>
-     *   <li>시프트 + 우클릭 → 다이너마이트</li>
+     *   <li>우클릭 (sneak X) → 오버클럭 (unlock-level 1 이상)</li>
+     *   <li>시프트 + 우클릭 → 다이너마이트 (unlock-level 30 이상)</li>
      * </ul>
      * 둘 다 worldguard.allowed-regions 안에서만 발동.
+     * 리전 밖에서는 메시지 없이 silent 무시.
      */
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent event) {
@@ -123,22 +123,15 @@ public final class MinerSkills implements Listener {
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
 
         Player player = event.getPlayer();
-        // 트리거 = 광부 곡괭이만
+        // 트리거 = 광부 곡괭이만 (광부 직업이 아닌 사람의 곡괭이는 통과시키지 않음)
         if (!pickaxeValidator.isValidPickaxe(player)) return;
 
-        // 광부 직업 검사
+        // 광부 직업이 아니면 silent (일반 우클릭 동작 유지)
         PlayerJobProfile profile = core.getPlayerProfiles().getCached(player.getUniqueId());
-        if (profile == null || profile.getJobId() != JobId.MINER) {
-            player.sendMessage("§c[광산] §f광부 직업이 아니므로 스킬을 사용할 수 없습니다.");
-            return;
-        }
+        if (profile == null || profile.getJobId() != JobId.MINER) return;
 
-        // 리전 검사 — 광산 지역(WorldGuard) 안에서만
-        if (!worldGuard.isInAnyRegion(player.getLocation(), config.getMineAllowedRegions())) {
-            player.sendMessage("§c[광산] §f광산 지역에서만 스킬을 사용할 수 있습니다.");
-            event.setCancelled(true);
-            return;
-        }
+        // ★ 리전 밖이면 silent — 메시지/cancel 없음. 일반 우클릭처럼 동작
+        if (!worldGuard.isInAnyRegion(player.getLocation(), config.getMineAllowedRegions())) return;
 
         // 시프트 + 우클릭 → 다이너마이트, 일반 우클릭 → 오버클럭
         ItemStack hand = player.getInventory().getItemInMainHand();
@@ -147,6 +140,14 @@ public final class MinerSkills implements Listener {
         } else {
             tryUseOverclock(event, player, profile, hand);
         }
+    }
+
+    /** SKILL 스탯 기반 쿨다운 감소율 (0.0~cap) */
+    private static double resolveCooldownReduction(int skillLevel, double perLevel, double cap) {
+        double reduction = perLevel * skillLevel;
+        if (reduction < 0) return 0;
+        if (cap > 0 && reduction > cap) return cap;
+        return reduction;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -221,8 +222,13 @@ public final class MinerSkills implements Listener {
             PlayerJobProfile profile,
             ItemStack hand
     ) {
-        if (!config.isDynamiteEnabled()) {
-            player.sendMessage("§c[광산] §f다이너마이트가 비활성화되어 있습니다.");
+        if (!config.isDynamiteEnabled()) return false;
+
+        // 해금 레벨 검사 (기본 30)
+        int unlock = config.getDynamiteUnlockLevel();
+        if (profile.getLevel() < unlock) {
+            player.sendMessage(legacyAmpersand(config.getDynamiteLevelDeniedMessage()
+                    .replace("{level}", String.valueOf(unlock))));
             event.setCancelled(true);
             return true;
         }
@@ -232,13 +238,15 @@ public final class MinerSkills implements Listener {
         Long cdEnd = dynamiteCooldownUntilMs.get(id);
         if (cdEnd != null && now < cdEnd) {
             long remainingSec = (cdEnd - now + 999) / 1000;
-            player.sendMessage("§c[광산] §f다이너마이트 쿨타임: " + remainingSec + "초");
+            player.sendMessage(legacyAmpersand(config.getDynamiteCooldownMessage()
+                    .replace("{seconds}", String.valueOf(remainingSec))));
             event.setCancelled(true);
             return true;
         }
 
-        Location spawnLoc = resolveSpawnLocation(player);
-        if (spawnLoc == null || spawnLoc.getWorld() == null) {
+        // ★ 제자리 설치 — 시선/위치 추적 없이 플레이어 발 위치에 그대로
+        Location spawnLoc = player.getLocation().clone().add(0, 0.1, 0);
+        if (spawnLoc.getWorld() == null) {
             event.setCancelled(true);
             return true;
         }
@@ -249,15 +257,24 @@ public final class MinerSkills implements Listener {
             primed.setSource(player);
             primed.getPersistentDataContainer().set(dynamiteKey, PersistentDataType.BYTE, (byte) 1);
             primed.getPersistentDataContainer().set(dynamiteOwnerKey, PersistentDataType.STRING, player.getUniqueId().toString());
-            primed.setVelocity(new Vector(0, 0.05, 0));
+            // 제자리에 그대로 — velocity 0
+            primed.setVelocity(new Vector(0, 0, 0));
         });
 
-        int cooldownTicks = Math.max(0, config.getDynamiteCooldownTicks());
+        // SKILL 스탯으로 쿨다운 감소
+        int skillLevel = profile.getStatLevel(StatType.SKILL);
+        double reduction = resolveCooldownReduction(
+                skillLevel,
+                config.getDynamiteCooldownReductionPerSkill(),
+                config.getDynamiteCooldownReductionCap()
+        );
+        int cooldownTicks = Math.max(0,
+                (int) Math.round(config.getDynamiteCooldownTicks() * (1.0 - reduction)));
         if (cooldownTicks > 0) {
-            dynamiteCooldownUntilMs.put(id, now + cooldownTicks * MS_PER_TICK);
+            dynamiteCooldownUntilMs.put(id, now + (long) cooldownTicks * MS_PER_TICK);
         }
 
-        player.sendMessage("§e[광산] §f다이너마이트 투척!");
+        player.sendMessage("§e[광산] §f다이너마이트 설치!");
         return true;
     }
 
@@ -267,14 +284,12 @@ public final class MinerSkills implements Listener {
             PlayerJobProfile profile,
             ItemStack hand
     ) {
-        if (!config.isOverclockEnabled()) {
-            player.sendMessage("§c[광산] §f오버클럭이 비활성화되어 있습니다.");
-            event.setCancelled(true);
-            return true;
-        }
+        if (!config.isOverclockEnabled()) return false;
 
         int jobLevel = profile.getLevel();
-        if (jobLevel < config.getOverclockMinJobLevel() || jobLevel > config.getOverclockMaxJobLevel()) {
+        // unlock-level 사용 (1레벨 기본). max-job-level은 그대로 유지
+        int unlock = config.getOverclockUnlockLevel();
+        if (jobLevel < unlock || jobLevel > config.getOverclockMaxJobLevel()) {
             player.sendMessage(legacyAmpersand(config.getOverclockLevelDeniedMessage()));
             event.setCancelled(true);
             return true;
@@ -282,18 +297,27 @@ public final class MinerSkills implements Listener {
 
         long now = System.currentTimeMillis();
         UUID id = player.getUniqueId();
+        int skillLevel = profile.getStatLevel(StatType.SKILL);
 
+        // 이미 활성 중 — 80레벨 이상부터 지속시간 연장 가능 (그 미만은 쿨타임 메시지)
         Long activeEnd = overclockActiveUntilMs.get(id);
         if (activeEnd != null && now < activeEnd) {
-            long newEnd = now + config.getOverclockDurationTicks() * MS_PER_TICK;
-            overclockActiveUntilMs.put(id, newEnd);
-            // 기존 Haste를 먼저 제거한 뒤 재부여하여 duration이 올바르게 적용되도록
+            if (jobLevel < config.getOverclockExtensionUnlockLevel()) {
+                player.sendMessage(legacyAmpersand(config.getOverclockCooldownMessage()));
+                event.setCancelled(true);
+                return true;
+            }
+            // 지속시간 연장 (80레벨+ 메카닉)
+            long extendMs = (long) config.getOverclockExtensionTicks() * MS_PER_TICK;
+            overclockActiveUntilMs.put(id, activeEnd + extendMs);
             clearOverclockHaste(player);
             applyOverclockHaste(player);
+            player.sendMessage("§e[광부] §f오버클럭 지속시간 +" + (config.getOverclockExtensionTicks() / 20) + "초 연장");
             event.setCancelled(true);
             return true;
         }
 
+        // 쿨다운 검사
         Long cdEnd = overclockCooldownUntilMs.get(id);
         if (cdEnd != null && now < cdEnd) {
             player.sendMessage(legacyAmpersand(config.getOverclockCooldownMessage()));
@@ -301,8 +325,17 @@ public final class MinerSkills implements Listener {
             return true;
         }
 
-        long durationMs = config.getOverclockDurationTicks() * MS_PER_TICK;
-        long cooldownMs = config.getOverclockCooldownTicks() * MS_PER_TICK;
+        long durationMs = (long) config.getOverclockDurationTicks() * MS_PER_TICK;
+
+        // SKILL 스탯으로 쿨다운 감소
+        double reduction = resolveCooldownReduction(
+                skillLevel,
+                config.getOverclockCooldownReductionPerSkill(),
+                config.getOverclockCooldownReductionCap()
+        );
+        long cooldownMs = (long) Math.max(0,
+                Math.round(config.getOverclockCooldownTicks() * (1.0 - reduction))) * MS_PER_TICK;
+
         overclockActiveUntilMs.put(id, now + durationMs);
         overclockCooldownUntilMs.put(id, now + cooldownMs);
         applyOverclockHaste(player);
@@ -372,22 +405,6 @@ public final class MinerSkills implements Listener {
         } catch (IllegalArgumentException ignored) {
             return null;
         }
-    }
-
-    private static Location resolveSpawnLocation(Player player) {
-        RayTraceResult trace = player.getWorld().rayTraceBlocks(
-                player.getEyeLocation(),
-                player.getEyeLocation().getDirection(),
-                32.0,
-                FluidCollisionMode.NEVER,
-                true
-        );
-        Location eye = player.getEyeLocation();
-        Vector dir = eye.getDirection().normalize().multiply(1.2);
-        if (trace != null && trace.getHitBlock() != null) {
-            return trace.getHitBlock().getRelative(trace.getHitBlockFace()).getLocation().add(0.5, 0.1, 0.5);
-        }
-        return eye.clone().add(dir);
     }
 
     private static Component legacyAmpersand(String raw) {

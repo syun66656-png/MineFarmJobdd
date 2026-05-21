@@ -36,6 +36,11 @@ public final class MinerPassiveEffectsService {
             clear(player);
             return;
         }
+        // ★ 해금 레벨 검사 (기본 50)
+        if (profile.getLevel() < minerConfig.getLightFootstepsUnlockLevel()) {
+            clear(player);
+            return;
+        }
         // WorldGuard 리전 체크 (allowed-regions 비어 있으면 무제한 통과)
         if (!worldGuard.isInAnyRegion(player.getLocation(), minerConfig.getPassiveAllowedRegions())) {
             clear(player);

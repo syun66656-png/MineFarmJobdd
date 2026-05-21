@@ -25,21 +25,34 @@ worldguard:
 # 두 스킬 모두 worldguard.allowed-regions 안에서만 발동.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 다이너마이트: TNT 소환 → fuse-ticks 후 폭발 (지형 파괴 없음, 리젠 광석만 보상)
+# 다이너마이트 (시프트 + 우클릭) — 제자리에 TNT 설치 후 fuse-ticks 만에 폭발
+# 지형은 파괴하지 않고 리젠 블록(광물)만 보상 처리.
 dynamite:
   enabled: true
-  fuse-ticks: 50
-  cooldown-ticks: 100
+  unlock-level: 30                      # 30레벨부터 해금
+  fuse-ticks: 50                        # 2.5초 (20틱=1초)
+  cooldown-ticks: 100                   # 5초
+  # SKILL 스탯 1레벨당 cooldown 감소 (예: 0.02 = 2%/레벨)
+  cooldown-reduction-per-skill: 0.02
+  cooldown-reduction-cap: 0.5           # 최대 감소율 (50%)
+  level-denied-message: "&c[광부] &f직업 레벨 {level} 이상부터 다이너마이트를 사용할 수 있습니다."
+  cooldown-message: "&c[광부] &f다이너마이트 쿨타임: {seconds}초"
 
-# 오버클럭: Haste 효과 부여, 액션바로 남은 시간 표시
+# 오버클럭 (우클릭) — Haste 효과 부여
 overclock:
   enabled: true
-  cooldown-ticks: 600
-  duration-ticks: 200
-  min-job-level: 1
+  unlock-level: 1                       # 1레벨부터 해금
+  cooldown-ticks: 600                   # 30초
+  duration-ticks: 200                   # 10초
   max-job-level: 999
-  haste-amplifier: 1
-  cooldown-message: "&c[광부] &f쿨타임 중입니다."
+  haste-amplifier: 1                    # Haste II
+  # SKILL 스탯 1레벨당 cooldown 감소
+  cooldown-reduction-per-skill: 0.02
+  cooldown-reduction-cap: 0.5
+  # 80레벨부터 active 중 재사용 시 지속시간 연장 메카닉 해금
+  extension-unlock-level: 80
+  extension-ticks: 100                  # 1회 연장량 (5초)
+  cooldown-message: "&c[광부] &f오버클럭 쿨타임 중입니다."
   level-denied-message: "&c[광부] &f직업 레벨이 맞지 않아 오버클럭을 사용할 수 없습니다."
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -106,6 +119,7 @@ miner-passives:
   allowed-regions: []
   light-footsteps:
     enabled: true
+    unlock-level: 50                    # 50레벨부터 해금
     # amplifier = min(cap, base-amplifier + SKILL스탯×per-skill-level + 직업레벨×per-job-level), 0=이속 I
     base-amplifier: 0
     per-skill-level: 1
