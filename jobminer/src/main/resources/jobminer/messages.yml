@@ -11,15 +11,18 @@ messages:
   # ── 다이너마이트 (시프트 + 우클릭) ─────────────────────────────────────────
   # {level}    : unlock 레벨
   # {seconds}  : 남은 쿨타임 (초)
+  # {level}=unlock 레벨, {seconds}=남은 쿨타임, {cooldown}=내 쿨타임(스탯 적용)
   dynamite-level-denied: "&c[광부] &f직업 레벨 {level} 이상부터 다이너마이트를 사용할 수 있습니다."
   dynamite-cooldown: "&c[광부] &f다이너마이트 쿨타임: {seconds}초"
-  dynamite-thrown: "&e[광산] &f다이너마이트 설치!"
+  dynamite-thrown: "&e[광산] &f다이너마이트 설치! &7(쿨타임 &f{cooldown}초&7)"
 
   # ── 오버클럭 (우클릭) ──────────────────────────────────────────────────────
   # extension-success: {seconds} 연장 초, {chance} 발동 확률(%)
   # extension-failure: {chance} 발동 확률(%)
   overclock-level-denied: "&c[광부] &f직업 레벨이 맞지 않아 오버클럭을 사용할 수 없습니다."
   overclock-cooldown: "&c[광부] &f오버클럭 쿨타임 중입니다."
+  # {duration}=지속시간(초), {cooldown}=쿨타임(초)  — 둘 다 스탯 적용 후 실제값
+  overclock-activated: "&6[광부] &f오버클럭 발동! &7(지속 &e{duration}초&7 · 쿨타임 &c{cooldown}초&7)"
   overclock-extension-success: "&e[광부] &f오버클럭 &a+{seconds}초 &f연장!"
   overclock-extension-failure: "&7[광부] &f연장 실패 &8({chance}%)"
   # 액션바 (남은 시간 표시) — {seconds}: 남은 초

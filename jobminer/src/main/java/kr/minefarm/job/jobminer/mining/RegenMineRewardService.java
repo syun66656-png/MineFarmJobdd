@@ -66,10 +66,10 @@ public final class RegenMineRewardService {
 
         // ③ 자동판매 처리
         if (!autoSellProcessor.shouldAttemptAutoSell(profile)) {
-            giveItems(player, drops);
+            giveItems(player, drops, block.getLocation());
         } else {
             PricedAutoSellResult sellResult = autoSellProcessor.sellPricedStacks(player, profile, drops);
-            giveItems(player, sellResult.stacksForInventory());
+            giveItems(player, sellResult.stacksForInventory(), block.getLocation());
         }
 
         // ④ 광물별 경험치 + RELIC 경험치 보너스 지급

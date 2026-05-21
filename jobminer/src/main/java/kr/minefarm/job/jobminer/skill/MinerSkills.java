@@ -204,6 +204,53 @@ public final class MinerSkills implements Listener {
     }
 
     /**
+     * SKILL 스탯 기반 ticks 감소량 (초 단위 옵션 우선, fallback 비율).
+     * absoluteSecondsPerSkill 가 0보다 크면 절대값으로 계산 (1스탯당 N초 감소).
+     * 그렇지 않으면 ratio (비율 cap 적용) 사용.
+     * 결과 ticks 가 minTicks 미만이면 minTicks 반환.
+     */
+    private static long resolveCooldownTicks(
+            int baseTicks, int skillLevel,
+            double secondsPerSkill, double ratioPerSkill, double ratioCap,
+            double minSeconds
+    ) {
+        long minTicks = Math.max(0, Math.round(minSeconds * 20));
+        long resultTicks;
+        if (secondsPerSkill > 0.0) {
+            long reductionTicks = Math.round(secondsPerSkill * skillLevel * 20);
+            resultTicks = baseTicks - reductionTicks;
+        } else {
+            double ratio = resolveCooldownReduction(skillLevel, ratioPerSkill, ratioCap);
+            resultTicks = Math.round(baseTicks * (1.0 - ratio));
+        }
+        return Math.max(minTicks, resultTicks);
+    }
+
+    /**
+     * SKILL 스탯 기반 지속시간 ticks (초 단위 절대값 우선, fallback 비율).
+     * maxSeconds=0 이면 무제한.
+     */
+    private static long resolveDurationTicks(
+            int baseTicks, int skillLevel,
+            double secondsPerSkill, double ratioPerSkill, double ratioCap,
+            double maxSeconds
+    ) {
+        long resultTicks;
+        if (secondsPerSkill > 0.0) {
+            long bonusTicks = Math.round(secondsPerSkill * skillLevel * 20);
+            resultTicks = baseTicks + bonusTicks;
+        } else {
+            double ratio = resolveCooldownReduction(skillLevel, ratioPerSkill, ratioCap);
+            resultTicks = Math.round(baseTicks * (1.0 + ratio));
+        }
+        if (maxSeconds > 0.0) {
+            long cap = Math.round(maxSeconds * 20);
+            if (resultTicks > cap) resultTicks = cap;
+        }
+        return Math.max(0, resultTicks);
+    }
+
+    /**
      * 다이너마이트 폭발 처리 — fuse 끝 시점에 직접 호출 (BukkitRunnable).
      * EntityExplodeEvent 에 의존하지 않음 (yield 와 무관하게 동작 보장).
      *
@@ -385,37 +432,38 @@ public final class MinerSkills implements Listener {
             return true;
         }
 
-        // SKILL 스탯 기반 쿨다운 감소
-        double cdReduction = resolveCooldownReduction(
+        // SKILL 스탯 기반 — 초 단위 옵션 우선
+        long cooldownTicks = resolveCooldownTicks(
+                config.getOverclockCooldownTicks(),
                 skillLevel,
+                config.getOverclockCooldownReductionSecondsPerSkill(),
                 config.getOverclockCooldownReductionPerSkill(),
-                config.getOverclockCooldownReductionCap()
+                config.getOverclockCooldownReductionCap(),
+                config.getOverclockCooldownMinSeconds()
         );
-        long cooldownMs = (long) Math.max(0,
-                Math.round(config.getOverclockCooldownTicks() * (1.0 - cdReduction))) * MS_PER_TICK;
-
-        // SKILL 스탯 기반 지속시간 보너스
-        long durationMs = computeOverclockDurationMs(skillLevel);
+        long durationTicks = resolveDurationTicks(
+                config.getOverclockDurationTicks(),
+                skillLevel,
+                config.getOverclockDurationBonusSecondsPerSkill(),
+                config.getOverclockDurationBonusPerSkill(),
+                config.getOverclockDurationBonusCap(),
+                config.getOverclockDurationMaxSeconds()
+        );
+        long cooldownMs = cooldownTicks * MS_PER_TICK;
+        long durationMs = durationTicks * MS_PER_TICK;
 
         overclockActiveUntilMs.put(id, now + durationMs);
         overclockCooldownUntilMs.put(id, now + cooldownMs);
         applyOverclockHaste(player, durationMs);
         playOverclockSound(player);
 
+        // 발동 메시지
+        player.sendMessage(messages.format("overclock-activated", java.util.Map.of(
+                "duration", formatSeconds(durationTicks / 20.0),
+                "cooldown", formatSeconds(cooldownTicks / 20.0))));
+
         event.setCancelled(true);
         return true;
-    }
-
-    /** SKILL 스탯 적용된 오버클럭 지속시간(ms) */
-    private long computeOverclockDurationMs(int skillLevel) {
-        double bonus = resolveCooldownReduction(  // 동일 공식 — min(cap, perLevel × skill)
-                skillLevel,
-                config.getOverclockDurationBonusPerSkill(),
-                config.getOverclockDurationBonusCap()
-        );
-        long baseTicks = config.getOverclockDurationTicks();
-        long finalTicks = Math.max(0, Math.round(baseTicks * (1.0 + bonus)));
-        return finalTicks * MS_PER_TICK;
     }
 
     /**
@@ -433,12 +481,18 @@ public final class MinerSkills implements Listener {
         );
         if (chance < 0) chance = 0;
 
-        // 연장량(ticks) = min(cap, base + perSkill × SKILL)
-        int extTicks = Math.min(
-                config.getOverclockExtensionTicksCap(),
-                config.getOverclockExtensionBaseTicks()
-                        + config.getOverclockExtensionTicksPerSkill() * skillLevel
-        );
+        // 연장량(ticks) — seconds-per-skill 우선, fallback ticks-per-skill
+        double extSecPerSkill = config.getOverclockExtensionSecondsPerSkill();
+        int extTicks;
+        if (extSecPerSkill > 0.0) {
+            extTicks = config.getOverclockExtensionBaseTicks()
+                    + (int) Math.round(extSecPerSkill * skillLevel * 20);
+        } else {
+            extTicks = config.getOverclockExtensionBaseTicks()
+                    + config.getOverclockExtensionTicksPerSkill() * skillLevel;
+        }
+        int extCap = config.getOverclockExtensionTicksCap();
+        if (extTicks > extCap) extTicks = extCap;
         if (extTicks < 0) extTicks = 0;
 
         double roll = ThreadLocalRandom.current().nextDouble();

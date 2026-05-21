@@ -55,11 +55,15 @@ overclock:
   max-job-level: 999
   haste-amplifier: 1                    # Haste II
 
-  # ── SKILL 스탯 보너스 ────────────────────────────────────────────────────
-  cooldown-reduction-per-skill: 0.02    # 1레벨당 cooldown -2%
-  cooldown-reduction-cap: 0.5           # 최대 -50%
-  duration-bonus-per-skill: 0.02        # 1레벨당 duration +2%
-  duration-bonus-cap: 1.0               # 최대 +100% (2배)
+  # ── SKILL 스탯 보너스 (초 단위 옵션이 0보다 크면 비율 옵션 무시) ─────────
+  cooldown-reduction-per-skill: 0.02    # (비율) 1레벨당 cooldown -2%
+  cooldown-reduction-cap: 0.5           # (비율) 최대 -50%
+  cooldown-reduction-seconds-per-skill: 0.0  # (초) 1레벨당 cooldown -N초. 0=비활성
+  cooldown-min-seconds: 1.0             # 최소 쿨타임 (이 값 미만 안 됨)
+  duration-bonus-per-skill: 0.02        # (비율) 1레벨당 duration +2%
+  duration-bonus-cap: 1.0               # (비율) 최대 +100% (2배)
+  duration-bonus-seconds-per-skill: 0.0 # (초) 1레벨당 duration +N초. 0=비활성
+  duration-max-seconds: 0.0             # 최대 지속시간 (0=무제한)
 
   # ── 발동 사운드 ──────────────────────────────────────────────────────────
   activation-sound: ENTITY_BLAZE_SHOOT  # 화염구 발사 사운드
@@ -72,9 +76,10 @@ overclock:
   extension-base-chance: 0.5            # 기본 50% 확률
   extension-chance-per-skill: 0.005     # SKILL 1레벨당 +0.5%p
   extension-chance-cap: 1.0             # 최대 100%
-  extension-base-ticks: 100             # 기본 +5초
-  extension-ticks-per-skill: 2          # SKILL 1레벨당 +0.1초
-  extension-ticks-cap: 200              # 최대 +10초
+  extension-base-ticks: 100              # 기본 +5초 (단위: 1tick=0.05초)
+  extension-ticks-per-skill: 2           # (ticks) SKILL 1레벨당 +0.1초
+  extension-seconds-per-skill: 0.0       # (초)   SKILL 1레벨당 +N초 (0이면 ticks-per-skill 사용)
+  extension-ticks-cap: 200               # 최대 +10초
   extension-success-message: "&e[광부] &f오버클럭 &a+{seconds}초 &f연장!"
   extension-failure-message: "&7[광부] &f연장 실패 &8({chance}%)"
 

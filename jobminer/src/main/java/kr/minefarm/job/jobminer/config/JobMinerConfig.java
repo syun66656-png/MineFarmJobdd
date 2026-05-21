@@ -523,6 +523,16 @@ public final class JobMinerConfig {
         return config.getDouble("dynamite.cooldown-reduction-cap", 0.5);
     }
 
+    /** 다이너마이트: SKILL 1레벨당 쿨타임 감소 (초). 0이면 비활성. */
+    public double getDynamiteCooldownReductionSecondsPerSkill() {
+        return config.getDouble("dynamite.cooldown-reduction-seconds-per-skill", 0.0);
+    }
+
+    /** 다이너마이트: 최소 쿨타임 (초). 스탯으로 더 감소해도 이 값 미만으로 안 떨어짐. */
+    public double getDynamiteCooldownMinSeconds() {
+        return config.getDouble("dynamite.cooldown-min-seconds", 1.0);
+    }
+
     public String getDynamiteLevelDeniedMessage() {
         return config.getString("dynamite.level-denied-message",
                 "&c[광부] &f직업 레벨 {level} 이상부터 다이너마이트를 사용할 수 있습니다.");
@@ -587,6 +597,26 @@ public final class JobMinerConfig {
         return config.getDouble("overclock.duration-bonus-cap", 1.0);
     }
 
+    /** 오버클럭: SKILL 1레벨당 쿨타임 감소 (초). 0이면 비활성. */
+    public double getOverclockCooldownReductionSecondsPerSkill() {
+        return config.getDouble("overclock.cooldown-reduction-seconds-per-skill", 0.0);
+    }
+
+    /** 오버클럭: SKILL 1레벨당 지속시간 증가 (초). 0이면 비활성. */
+    public double getOverclockDurationBonusSecondsPerSkill() {
+        return config.getDouble("overclock.duration-bonus-seconds-per-skill", 0.0);
+    }
+
+    /** 오버클럭: 최소 쿨타임 (초). */
+    public double getOverclockCooldownMinSeconds() {
+        return config.getDouble("overclock.cooldown-min-seconds", 1.0);
+    }
+
+    /** 오버클럭: 최대 지속시간 (초). 0이면 무제한. */
+    public double getOverclockDurationMaxSeconds() {
+        return config.getDouble("overclock.duration-max-seconds", 0.0);
+    }
+
     // 발동 사운드
     public String getOverclockActivationSound() {
         return config.getString("overclock.activation-sound", "ENTITY_BLAZE_SHOOT");
@@ -619,6 +649,11 @@ public final class JobMinerConfig {
     }
     public int getOverclockExtensionTicksPerSkill() {
         return config.getInt("overclock.extension-ticks-per-skill", 2);
+    }
+
+    /** 메카닉 연장량 — SKILL 1레벨당 추가 연장 (초, ticks-per-skill 보다 우선). */
+    public double getOverclockExtensionSecondsPerSkill() {
+        return config.getDouble("overclock.extension-seconds-per-skill", 0.0);
     }
     public int getOverclockExtensionTicksCap() {
         return config.getInt("overclock.extension-ticks-cap", 200);
