@@ -104,7 +104,9 @@ public final class JobMinerModule implements JobModule {
         RegenMineRewardService regenMineRewardService = new RegenMineRewardService(
                 dropResolver,
                 autoSellProcessor,
-                regenRestoreService
+                regenRestoreService,
+                context.getCore(),
+                minerConfig
         );
 
         minerSkills = new MinerSkills(

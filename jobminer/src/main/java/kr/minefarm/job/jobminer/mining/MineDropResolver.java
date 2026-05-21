@@ -40,6 +40,15 @@ public final class MineDropResolver {
     }
 
     /** 자동판매 가격 산정용 — 커스텀 드롭 목록 (가격표에 있는 것만 유효). */
+    /** guaranteed 드롭만 반환 (RELIC 보너스 계산용). */
+    public List<ItemStack> resolveGuaranteedDropsOnly() {
+        List<ItemStack> items = new ArrayList<>();
+        for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
+            if (entry.getValue() > 0) items.add(new ItemStack(entry.getKey(), entry.getValue()));
+        }
+        return items;
+    }
+
     public List<ItemStack> resolveDropsForPricing() {
         return resolveMiningDrops();
     }

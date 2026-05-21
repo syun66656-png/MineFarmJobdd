@@ -23,17 +23,62 @@ overclock:
   cooldown-message: "&c[광부] &f쿨타임 중입니다."
   level-denied-message: "&c[광부] &f직업 레벨이 맞지 않아 오버클럭을 사용할 수 없습니다."
 
-# 광부 직업 선택 시 인벤토리에 지급 (직업 변경할 때마다 지급됨 — 1회만 주려면 추후 플래그 추가)
+# ─────────────────────────────────────────────────────────────────────────────
+# 스타터 킷 — 광부 직업 선택 시 자동 지급
+# 지원 필드:
+#   material      : Bukkit Material 이름 (대소문자 무관), 필수
+#   amount        : 수량 (기본 1, 최대 64)
+#   name          : 표시 이름 (&색코드 지원)
+#   lore          : 아이템 설명 줄 목록 (&색코드 지원)
+#   enchantments  : 인챈트 목록 (이름: 레벨)
+#                   지원: efficiency, unbreaking, fortune, silk_touch, mending,
+#                         sharpness, protection, fire_protection, blast_protection,
+#                         feather_falling, thorns, looting …
+#   slot          : 배치 슬롯 지정 (없으면 자동 배치)
+#                   숫자(0~35) | hand | offhand | helmet | chestplate | leggings | boots
+#   unbreakable   : true 시 내구도 소모 없음 (기본 false)
+#   custom-model-data: 커스텀 모델 데이터 숫자 (리소스팩 연동용)
+# ─────────────────────────────────────────────────────────────────────────────
 starter-kit:
   items:
+    # 기본 철 곡괭이
     - material: IRON_PICKAXE
       amount: 1
       name: "&6광부 곡괭이"
       lore:
         - "&7리젠 광산 채굴용"
+        - "&8인챈트: 효율 II · 내구도 II"
       enchantments:
         efficiency: 2
         unbreaking: 2
+      slot: hand          # 주 손에 바로 장착
+
+    # 예시 — 다이아 곡괭이 (주석 처리된 상태)
+    # - material: DIAMOND_PICKAXE
+    #   amount: 1
+    #   name: "&b&l다이아 광부 곡괭이"
+    #   lore:
+    #     - "&7고급 리젠 광산 전용"
+    #     - "&e특수 능력: 채굴 시 EXP +30%"
+    #   enchantments:
+    #     efficiency: 4
+    #     unbreaking: 3
+    #     fortune: 2
+    #     mending: 1
+    #   slot: hand
+    #   unbreakable: false
+
+    # 예시 — 음식/소모품
+    # - material: COOKED_BEEF
+    #   amount: 16
+    #   name: "&c광부 도시락"
+    #   lore:
+    #     - "&7채굴 중 체력 회복용"
+
+    # 예시 — 갑옷 직접 장착
+    # - material: LEATHER_HELMET
+    #   name: "&7광부 헬멧"
+    #   slot: helmet
 
 # 접속·직업 선택·스탯 투자 후 DB 프로필 반영 시 적용 (메인 스레드)
 miner-passives:
@@ -115,3 +160,44 @@ shop-gui:
   # 아이템 없을 때 메시지
   no-items-message: "&c인벤토리에 판매 가능한 광석이 없습니다."
   vault-error-message: "&c입금 오류가 발생했습니다. 관리자에게 문의하세요."
+
+# 광물 채굴 시 지급할 직업 경험치 (min~max 랜덤 범위)
+# key: Bukkit Material 이름 (대/소문자 무관)
+# value: "min~max" 또는 고정값 숫자
+# 리젠 블록이 해당 Material인 경우에만 적용됩니다.
+# 예) COAL_ORE: "10~20"  → 10~20 사이 랜덤
+#     DIAMOND_ORE: 500    → 항상 500
+mine-exp:
+  COAL_ORE: "10~20"
+  DEEPSLATE_COAL_ORE: "12~25"
+  IRON_ORE: "20~35"
+  DEEPSLATE_IRON_ORE: "25~40"
+  COPPER_ORE: "15~28"
+  DEEPSLATE_COPPER_ORE: "18~32"
+  GOLD_ORE: "40~60"
+  DEEPSLATE_GOLD_ORE: "45~70"
+  LAPIS_ORE: "35~55"
+  DEEPSLATE_LAPIS_ORE: "40~65"
+  REDSTONE_ORE: "30~50"
+  DEEPSLATE_REDSTONE_ORE: "35~55"
+  DIAMOND_ORE: "150~250"
+  DEEPSLATE_DIAMOND_ORE: "180~300"
+  EMERALD_ORE: "120~200"
+  DEEPSLATE_EMERALD_ORE: "140~230"
+  NETHER_GOLD_ORE: "30~50"
+  NETHER_QUARTZ_ORE: "25~40"
+  ANCIENT_DEBRIS: "400~600"
+  STONE: "1~3"
+
+# 유물(RELIC) 스탯 효과 설정
+# 광산 채굴 시 드롭 수량에 추가 보너스를 적용합니다.
+# bonus-drop-chance: RELIC 스탯 레벨당 추가 드롭 발동 확률 (0.0~1.0)
+# bonus-drop-amount: 추가 드롭 발동 시 guaranteed-drops 수량에 곱할 배수
+# max-bonus-amount: 최대 추가 드롭 수량 (0 = 무제한)
+relic:
+  # RELIC 1레벨당 +2% 확률로 guaranteed-drops가 한 번 더 지급
+  bonus-drop-chance-per-level: 0.02
+  # 추가 드롭 시 드롭 수량 곱배수 (1.0 = 동량, 1.5 = 1.5배)
+  bonus-drop-multiplier: 1.0
+  # RELIC 스탯 레벨당 mine-exp 경험치 추가 배율 (+2%/레벨)
+  exp-bonus-per-level: 0.02

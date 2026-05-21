@@ -6,7 +6,6 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -21,14 +20,25 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * {@code jobminer/config.yml} 의 {@code starter-kit} 템플릿을 읽어 직업 선택 시 지급한다.
- * <ul>
- *     <li>지급 시 반드시 {@link ItemStack#clone()} 으로 복제해 템플릿 리스트가 변형되지 않게 한다.</li>
- *     <li>{@link PlayerInventory#addItem(ItemStack...)} 반환 {@code Map<Integer, ItemStack>}에 남은 스택만
- *     {@code dropItemNaturally} 한다 (인벤에 들어간 만큼만 처리).</li>
- * </ul>
- * <p>
- * {@link #equipStarterKit} 은 JobCore에서 DB 비동기 로드 후 {@code runTask}로 호출되는 것을 전제로 한다 (메인 스레드 전용).
+ * {@code starter-kit.items} 템플릿을 읽어 직업 선택 시 지급한다.
+ *
+ * <h3>지원 설정 (각 아이템마다)</h3>
+ * <pre>
+ * - material: DIAMOND_PICKAXE          # 필수 — Bukkit Material 이름
+ *   amount: 1                          # 기본 1, 최대 64
+ *   name: "&6다이아 광부 곡괭이"         # 표시 이름 (&색코드 지원)
+ *   lore:                              # 설명 (줄마다 & 색코드 지원)
+ *     - "&7리젠 광산 전용 곡괭이"
+ *     - "&e효율 III &7강화"
+ *   enchantments:                      # 인챈트 (이름: 레벨)
+ *     efficiency: 3
+ *     unbreaking: 3
+ *     fortune: 2
+ *     mending: 1
+ *   slot: 0                            # 인벤토리 슬롯 직접 지정 (없으면 자동 배치)
+ *                                      # 특수: "hand" = 주 손, "offhand" = 보조 손
+ *                                      #        "helmet","chestplate","leggings","boots"
+ * </pre>
  */
 public final class StarterKitService {
 
@@ -44,126 +54,164 @@ public final class StarterKitService {
         m.put("FORTUNE", "fortune");
         m.put("LOOTING", "looting");
         m.put("MENDING", "mending");
+        m.put("SILK_TOUCH", "silk_touch");
+        m.put("SILKTOUCH", "silk_touch");
+        m.put("SHARPNESS", "sharpness");
+        m.put("PROTECTION", "protection");
+        m.put("FIRE_PROTECTION", "fire_protection");
+        m.put("BLAST_PROTECTION", "blast_protection");
+        m.put("FEATHER_FALLING", "feather_falling");
+        m.put("THORNS", "thorns");
         ENCHANT_ALIASES = Map.copyOf(m);
     }
 
+    private record KitEntry(ItemStack stack, String slot) {}
+
+    private final List<KitEntry> entries;
     private final java.util.logging.Logger logger;
 
     public StarterKitService(JobMinerConfig minerConfig, java.util.logging.Logger logger) {
         this.logger = logger;
-        this.templates = parseTemplates(minerConfig, logger);
+        this.entries = parseEntries(minerConfig, logger);
     }
 
-    /** 하위 호환 생성자 (logger 없이 사용 시 기본 logger 사용) */
     public StarterKitService(JobMinerConfig minerConfig) {
         this(minerConfig, java.util.logging.Logger.getLogger("JobMiner"));
     }
 
     /**
-     * 템플릿마다 {@link ItemStack#clone()} 후 {@link PlayerInventory#addItem(ItemStack...)} 으로 넣고,
-     * 반환 맵에만 담긴 초과분을 {@code dropItemNaturally} 한다.
+     * 모든 킷 아이템을 플레이어에게 지급한다.
+     * slot이 지정된 아이템은 해당 슬롯에, 없으면 addItem으로 자동 배치.
+     * 인벤토리가 꽉 차면 발밑 드롭.
      */
     public void equipStarterKit(Player player) {
-        if (!player.isOnline() || templates.isEmpty()) {
-            return;
-        }
-        PlayerInventory inventory = player.getInventory();
-        for (ItemStack template : templates) {
-            ItemStack give = template.clone();
-            if (give.getType().isAir() || give.getAmount() <= 0) {
-                continue;
-            }
-            HashMap<Integer, ItemStack> didNotFit = inventory.addItem(give);
-            if (didNotFit.isEmpty()) {
-                continue;
-            }
-            for (ItemStack overflow : didNotFit.values()) {
-                if (overflow == null || overflow.getType().isAir() || overflow.getAmount() <= 0) {
-                    continue;
-                }
-                player.getWorld().dropItemNaturally(player.getLocation(), overflow);
+        if (!player.isOnline() || entries.isEmpty()) return;
+        PlayerInventory inv = player.getInventory();
+
+        for (KitEntry entry : entries) {
+            ItemStack give = entry.stack().clone();
+            if (give.getType().isAir() || give.getAmount() <= 0) continue;
+
+            boolean placed = tryPlaceInSlot(inv, give, entry.slot());
+            if (!placed) {
+                // 지정 슬롯 실패 or 슬롯 없음 → 자동 배치
+                HashMap<Integer, ItemStack> leftover = inv.addItem(give);
+                leftover.values().forEach(overflow ->
+                        player.getWorld().dropItemNaturally(player.getLocation(), overflow));
             }
         }
     }
 
-    private static List<ItemStack> parseTemplates(JobMinerConfig minerConfig, java.util.logging.Logger logger) {
-        List<ItemStack> out = new ArrayList<>();
-        ConfigurationSection root = minerConfig.getStarterKitSection();
+    private boolean tryPlaceInSlot(PlayerInventory inv, ItemStack give, String slot) {
+        if (slot == null || slot.isBlank()) return false;
+        switch (slot.toLowerCase(Locale.ROOT)) {
+            case "hand", "mainhand"    -> { inv.setItemInMainHand(give); return true; }
+            case "offhand"             -> { inv.setItemInOffHand(give); return true; }
+            case "helmet", "head"      -> { inv.setHelmet(give); return true; }
+            case "chestplate", "chest" -> { inv.setChestplate(give); return true; }
+            case "leggings", "legs"    -> { inv.setLeggings(give); return true; }
+            case "boots", "feet"       -> { inv.setBoots(give); return true; }
+            default -> {
+                try {
+                    int idx = Integer.parseInt(slot.trim());
+                    if (idx >= 0 && idx < inv.getSize()) {
+                        ItemStack existing = inv.getItem(idx);
+                        if (existing == null || existing.getType().isAir()) {
+                            inv.setItem(idx, give);
+                            return true;
+                        }
+                    }
+                } catch (NumberFormatException ignored) {}
+                return false;
+            }
+        }
+    }
+
+    // ── 파싱 ──────────────────────────────────────────────────────────────────
+
+    private static List<KitEntry> parseEntries(JobMinerConfig minerConfig,
+                                               java.util.logging.Logger logger) {
+        List<KitEntry> out = new ArrayList<>();
+        org.bukkit.configuration.ConfigurationSection root = minerConfig.getStarterKitSection();
         if (root == null) return out;
         List<Map<?, ?>> rows = root.getMapList("items");
         if (rows == null || rows.isEmpty()) return out;
         for (Map<?, ?> row : rows) {
             ItemStack stack = parseItemRow(row, logger);
-            if (stack != null) out.add(stack);
+            if (stack == null) continue;
+            String slot = row.containsKey("slot") ? String.valueOf(row.get("slot")).trim() : null;
+            out.add(new KitEntry(stack, slot));
         }
         return out;
     }
 
     private static ItemStack parseItemRow(Map<?, ?> row, java.util.logging.Logger logger) {
+        // material (필수)
         Object matObj = row.get("material");
-        if (matObj == null) {
-            return null;
-        }
+        if (matObj == null) return null;
         Material material;
         try {
             material = Material.valueOf(String.valueOf(matObj).trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException e) {
+            logger.warning("[JobMiner] 스타터킷: 알 수 없는 머티리얼 '" + matObj + "' — 무시됨");
             return null;
         }
+
+        // amount
         int amount = 1;
-        Object amountObj = row.get("amount");
-        if (amountObj instanceof Number number) {
-            amount = Math.max(1, Math.min(64, number.intValue()));
-        } else if (amountObj != null) {
-            try {
-                amount = Math.max(1, Math.min(64, Integer.parseInt(String.valueOf(amountObj).trim())));
-            } catch (NumberFormatException ignored) {
-                amount = 1;
-            }
+        Object amtObj = row.get("amount");
+        if (amtObj instanceof Number n) amount = Math.max(1, Math.min(64, n.intValue()));
+        else if (amtObj != null) {
+            try { amount = Math.max(1, Math.min(64, Integer.parseInt(String.valueOf(amtObj).trim()))); }
+            catch (NumberFormatException ignored) {}
         }
 
         ItemStack stack = new ItemStack(material, amount);
         ItemMeta meta = stack.getItemMeta();
-        if (meta == null) {
-            return stack;
-        }
+        if (meta == null) return stack;
 
+        // name
         Object nameObj = row.get("name");
         if (nameObj != null) {
             String raw = String.valueOf(nameObj);
-            if (!raw.isBlank()) {
-                meta.displayName(legacy(raw));
-            }
+            if (!raw.isBlank()) meta.displayName(legacy(raw));
         }
 
+        // lore
         Object loreObj = row.get("lore");
         if (loreObj instanceof List<?> loreList && !loreList.isEmpty()) {
-            List<Component> lines = new ArrayList<>();
-            for (Object line : loreList) {
-                lines.add(legacy(String.valueOf(line)));
-            }
-            meta.lore(lines);
+            meta.lore(loreList.stream()
+                    .map(l -> legacy(String.valueOf(l)))
+                    .toList());
         }
 
+        // enchantments
         Object enchObj = row.get("enchantments");
         if (enchObj instanceof Map<?, ?> enchMap) {
-            for (Map.Entry<?, ?> entry : enchMap.entrySet()) {
-                String key = String.valueOf(entry.getKey()).trim();
+            for (Map.Entry<?, ?> e : enchMap.entrySet()) {
+                String key = String.valueOf(e.getKey()).trim();
                 int level = 1;
-                if (entry.getValue() instanceof Number number) {
-                    level = Math.max(1, number.intValue());
-                } else if (entry.getValue() != null) {
-                    try {
-                        level = Math.max(1, Integer.parseInt(String.valueOf(entry.getValue()).trim()));
-                    } catch (NumberFormatException ignored) {
-                        level = 1;
-                    }
+                if (e.getValue() instanceof Number n) level = Math.max(1, n.intValue());
+                else if (e.getValue() != null) {
+                    try { level = Math.max(1, Integer.parseInt(String.valueOf(e.getValue()).trim())); }
+                    catch (NumberFormatException ignored) {}
                 }
+                final int finalLevel = level;
                 resolveEnchantment(key).ifPresentOrElse(
-                        ench -> meta.addEnchant(ench, level, true),
+                        ench -> meta.addEnchant(ench, finalLevel, true),
                         () -> logger.warning("[JobMiner] 스타터킷: 알 수 없는 인챈트 키 '" + key + "' — 무시됨")
                 );
             }
+        }
+
+        // custom-model-data (선택)
+        Object cmdObj = row.get("custom-model-data");
+        if (cmdObj instanceof Number n) meta.setCustomModelData(n.intValue());
+
+        // unbreakable (선택)
+        Object unbreakObj = row.get("unbreakable");
+        if (Boolean.TRUE.equals(unbreakObj) || "true".equalsIgnoreCase(String.valueOf(unbreakObj))) {
+            meta.setUnbreakable(true);
         }
 
         stack.setItemMeta(meta);
@@ -175,17 +223,13 @@ public final class StarterKitService {
     }
 
     private static Optional<Enchantment> resolveEnchantment(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return Optional.empty();
-        }
+        if (raw == null || raw.isBlank()) return Optional.empty();
         String upper = raw.trim().toUpperCase(Locale.ROOT).replace('-', '_');
-        String minecraftKey = ENCHANT_ALIASES.getOrDefault(upper, raw.trim().toLowerCase(Locale.ROOT).replace('-', '_'));
-        if (!minecraftKey.contains(":")) {
-            Enchantment byKey = Registry.ENCHANTMENT.get(NamespacedKey.minecraft(minecraftKey.toLowerCase(Locale.ROOT)));
-            return Optional.ofNullable(byKey);
+        String key = ENCHANT_ALIASES.getOrDefault(upper, raw.trim().toLowerCase(Locale.ROOT).replace('-', '_'));
+        if (!key.contains(":")) {
+            return Optional.ofNullable(Registry.ENCHANTMENT.get(NamespacedKey.minecraft(key)));
         }
-        String[] parts = minecraftKey.split(":", 2);
-        Enchantment byNs = Registry.ENCHANTMENT.get(new NamespacedKey(parts[0], parts[1]));
-        return Optional.ofNullable(byNs);
+        String[] parts = key.split(":", 2);
+        return Optional.ofNullable(Registry.ENCHANTMENT.get(new NamespacedKey(parts[0], parts[1])));
     }
 }
