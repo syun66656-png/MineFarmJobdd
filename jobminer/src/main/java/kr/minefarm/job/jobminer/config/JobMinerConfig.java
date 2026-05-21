@@ -501,7 +501,7 @@ public final class JobMinerConfig {
 
     /** 다이너마이트 폭발 반경 (블록 단위, 기본 4) — blockList 의존 없이 직접 스캔 */
     public int getDynamiteExplosionRadius() {
-        return config.getInt("dynamite.explosion-radius", 4);
+        return config.getInt("dynamite.explosion-radius", 1);
     }
 
     /** 다이너마이트 폭발 시 플레이어/엔티티 데미지 및 넉백 제거 (기본 true) */

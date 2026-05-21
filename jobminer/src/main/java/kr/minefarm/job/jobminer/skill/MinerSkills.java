@@ -40,7 +40,6 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -157,22 +156,18 @@ public final class MinerSkills implements Listener {
     }
 
     /**
-     * 다이너마이트 TNT 폭발 처리.
-     * 다른 플러그인이 EntityExplodeEvent를 cancel 하거나 blockList를 비워도 동작하도록
-     * MONITOR priority + ignoreCancelled=false + 직접 스캔 방식 사용.
+     * 다이너마이트 — 진짜 TNT가 아닌 '가짜 TNT'.
+     * TNTPrimed 엔티티는 시각 효과/사운드만 담당.
+     * 폭발 시점에 (radius×2+1)³ 정육면체 안의 리젠 블록을 즉시 채굴 처리.
+     * 진짜 폭발의 부산물(블록 파괴/데미지/넉백)은 모두 제거.
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onExplode(EntityExplodeEvent event) {
-        if (!(event.getEntity() instanceof TNTPrimed tnt)) {
-            return;
-        }
-        if (!tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) {
-            return;
-        }
+        if (!(event.getEntity() instanceof TNTPrimed tnt)) return;
+        if (!tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) return;
 
-        // 폭발의 지형 파괴는 완전 차단 (리젠 블록만 보상으로 처리)
+        // 진짜 폭발 효과는 모두 차단 (시각/사운드는 TNT 엔티티가 알아서 표시)
         event.blockList().clear();
-        event.setCancelled(false); // 폭발 이벤트 자체는 통과 — 시각 효과를 위해
 
         Player player = resolveDynamiteOwner(tnt);
         PlayerJobProfile profile = player != null
@@ -182,52 +177,31 @@ public final class MinerSkills implements Listener {
             return;
         }
 
-        // ★ blockList 의존 없이 폭발 위치 주변을 직접 스캔
+        // 폭발 위치 기준 정육면체 스캔 (기본 radius=1 → 3×3×3)
         Location center = event.getLocation();
         World world = center.getWorld();
         if (world == null) return;
-        int radius = Math.max(1, config.getDynamiteExplosionRadius());
-        int r2 = radius * radius;
-
-        List<Block> regenOres = new ArrayList<>();
+        int radius = Math.max(0, config.getDynamiteExplosionRadius());
         int cx = center.getBlockX();
         int cy = center.getBlockY();
         int cz = center.getBlockZ();
+
+        // 폭발과 동시에 즉시 채굴 처리 (이미 메인 스레드)
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
-                    if (dx * dx + dy * dy + dz * dz > r2) continue;
                     Block block = world.getBlockAt(cx + dx, cy + dy, cz + dz);
                     if (!regenBlockRegistry.isRegenBlock(block)) continue;
                     if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) continue;
                     if (!MineOreMaterials.isOre(block.getType())) continue;
-                    regenOres.add(block);
+                    RegenBlockEntry entry = regenBlockRegistry.getEntry(block);
+                    if (entry == null) continue;
+                    // 채굴 처리 — 즉시 air 로 + 보상 지급 (regen 서비스가 cobblestone 으로 대체 후 복구)
+                    block.setType(Material.AIR, false);
+                    rewardService.deliverRewards(player, profile, block, entry);
                 }
             }
         }
-
-        if (regenOres.isEmpty()) {
-            return;
-        }
-
-        Player finalPlayer = player;
-        PlayerJobProfile finalProfile = profile;
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            for (Block block : regenOres) {
-                if (!regenBlockRegistry.isRegenBlock(block)) {
-                    continue;
-                }
-                if (!MineOreMaterials.isOre(block.getType())) {
-                    continue;
-                }
-                RegenBlockEntry entry = regenBlockRegistry.getEntry(block);
-                if (entry == null) {
-                    continue;
-                }
-                block.setType(Material.AIR, false);
-                rewardService.deliverRewards(finalPlayer, finalProfile, block, entry);
-            }
-        });
     }
 
     /**
@@ -289,6 +263,9 @@ public final class MinerSkills implements Listener {
             primed.getPersistentDataContainer().set(dynamiteOwnerKey, PersistentDataType.STRING, player.getUniqueId().toString());
             // 제자리에 그대로 — velocity 0
             primed.setVelocity(new Vector(0, 0, 0));
+            // '가짜 TNT' — 진짜 폭발 효과 무력화 (시각/사운드만 유지)
+            primed.setYield(0.0f);          // 폭발 반경 0 → 블록/엔티티 데미지 없음
+            primed.setIsIncendiary(false);  // 불 안 붙음
         });
 
         // SKILL 스탯으로 쿨다운 감소
