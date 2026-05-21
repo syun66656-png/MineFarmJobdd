@@ -27,7 +27,7 @@ public final class JobMinerConfig {
     private final List<SpecialDrop> specialDrops;
     private final Map<Material, List<OreDrop>> oreDrops;
     private final List<CommonDrop> commonDrops;
-    private final java.util.Set<String> passiveAllowedWorlds;
+    private final java.util.Set<String> passiveAllowedRegions;
     private final Map<Material, Double> shopPrices;
     private final MineExpTable mineExpTable;
     private final boolean dynamiteEnabled;
@@ -54,7 +54,7 @@ public final class JobMinerConfig {
         this.specialDrops = loadSpecialDrops();
         this.oreDrops = loadOreDrops();
         this.commonDrops = loadCommonDrops();
-        this.passiveAllowedWorlds = loadPassiveAllowedWorlds();
+        this.passiveAllowedRegions = loadPassiveAllowedRegions();
         this.shopPrices = loadShopPrices();
         this.mineExpTable = loadMineExpTable();
         this.dynamiteEnabled = config.getBoolean("dynamite.enabled", false);
@@ -205,14 +205,9 @@ public final class JobMinerConfig {
         return commonDrops;
     }
 
-    /** 광부 패시브가 적용될 월드 목록 (비어 있으면 모든 월드 허용) */
-    public java.util.Set<String> getPassiveAllowedWorlds() {
-        return passiveAllowedWorlds;
-    }
-
-    public boolean isPassiveAllowedInWorld(String worldName) {
-        if (passiveAllowedWorlds.isEmpty()) return true;
-        return passiveAllowedWorlds.contains(worldName);
+    /** 광부 패시브가 적용될 WorldGuard 리전 ID 목록 (비어 있으면 제한 없음 → 모든 곳에서 적용) */
+    public java.util.Set<String> getPassiveAllowedRegions() {
+        return passiveAllowedRegions;
     }
 
     public List<SpecialDrop> getSpecialDrops() {
@@ -293,12 +288,12 @@ public final class JobMinerConfig {
         return List.copyOf(list);
     }
 
-    private java.util.Set<String> loadPassiveAllowedWorlds() {
+    private java.util.Set<String> loadPassiveAllowedRegions() {
         ConfigurationSection root = config.getConfigurationSection("miner-passives");
         if (root == null) return java.util.Set.of();
-        List<String> worlds = root.getStringList("allowed-worlds");
-        if (worlds == null || worlds.isEmpty()) return java.util.Set.of();
-        return java.util.Set.copyOf(worlds);
+        List<String> regions = root.getStringList("allowed-regions");
+        if (regions == null || regions.isEmpty()) return java.util.Set.of();
+        return java.util.Set.copyOf(regions);
     }
 
     private List<SpecialDrop> loadSpecialDrops() {

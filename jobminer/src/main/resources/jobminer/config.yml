@@ -82,13 +82,15 @@ starter-kit:
 
 # 접속·직업 선택·스탯 투자 후 DB 프로필 반영 시 적용 (메인 스레드)
 miner-passives:
-  # 패시브(가벼운 발걸음 등)가 적용될 월드 목록
-  # 비어 있으면 모든 월드에 적용. 광산 전용 월드를 지정하면 다른 월드에서는 자동으로 효과 제거됨.
-  allowed-worlds: []
+  # 패시브(가벼운 발걸음 등)가 적용될 WorldGuard 리전(region) ID 목록
+  # 비어 있으면 제한 없음 → 광부 직업이면 어디서나 효과 적용.
+  # 목록이 있으면 해당 리전 안에 있을 때만 효과 유지. 리전을 벗어나면 즉시 제거됨.
+  # WorldGuard 미설치 시: 검사 비활성 (목록이 있어도 무시되고 모든 곳에서 적용).
+  allowed-regions: []
   # 예시:
-  # allowed-worlds:
-  #   - "mining_world"
-  #   - "nether_mining"
+  # allowed-regions:
+  #   - "mining_zone"
+  #   - "deep_mine"
   light-footsteps:
     enabled: true
     # amplifier = min(cap, base-amplifier + SKILL스탯×per-skill-level + 직업레벨×per-job-level), 0=이속 I

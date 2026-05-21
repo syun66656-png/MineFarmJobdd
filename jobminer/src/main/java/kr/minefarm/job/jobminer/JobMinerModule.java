@@ -15,6 +15,7 @@ import kr.minefarm.job.jobminer.listener.MiningListener;
 import kr.minefarm.job.jobminer.listener.RegenProtectionListener;
 import kr.minefarm.job.jobminer.listener.RegenWandListener;
 import kr.minefarm.job.jobminer.listener.MinerWorldChangeListener;
+import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
 import kr.minefarm.job.jobminer.mining.MineDropResolver;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
@@ -83,7 +84,8 @@ public final class JobMinerModule implements JobModule {
         minerConfig = new JobMinerConfig(plugin);
 
         StarterKitService starterKitService = new StarterKitService(minerConfig, plugin.getLogger());
-        MinerPassiveEffectsService passiveEffectsService = new MinerPassiveEffectsService(plugin, minerConfig);
+        WorldGuardBridge worldGuard = new WorldGuardBridge(plugin.getLogger());
+        MinerPassiveEffectsService passiveEffectsService = new MinerPassiveEffectsService(plugin, minerConfig, worldGuard);
 
         regenBlockStorage = new RegenBlockStorage(plugin);
         regenBlockRegistry = new RegenBlockRegistry();
