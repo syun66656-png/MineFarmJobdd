@@ -41,7 +41,6 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Set;
@@ -104,6 +103,7 @@ public final class MinerSkills implements Listener {
         UUID id = player.getUniqueId();
         overclockActiveUntilMs.remove(id);
         overclockCooldownUntilMs.remove(id);
+        dynamiteCooldownUntilMs.remove(id);
         clearOverclockHaste(player);
         player.sendActionBar(Component.empty());
     }
@@ -515,20 +515,25 @@ public final class MinerSkills implements Listener {
     }
 
     private void tickOverclockActionBar() {
+        if (overclockActiveUntilMs.isEmpty()) return; // 비어있으면 즉시 종료
         long now = System.currentTimeMillis();
-        for (UUID id : new ArrayList<>(overclockActiveUntilMs.keySet())) {
+        // ConcurrentHashMap iterator 는 weakly-consistent — 매 틱 ArrayList 복사 불필요.
+        var iter = overclockActiveUntilMs.entrySet().iterator();
+        while (iter.hasNext()) {
+            var entry = iter.next();
+            UUID id = entry.getKey();
+            Long end = entry.getValue();
             Player player = plugin.getServer().getPlayer(id);
             if (player == null || !player.isOnline()) {
-                overclockActiveUntilMs.remove(id);
+                iter.remove();
                 continue;
             }
-            Long end = overclockActiveUntilMs.get(id);
             if (end == null) {
                 continue;
             }
             if (now >= end) {
                 clearOverclockHaste(player);
-                overclockActiveUntilMs.remove(id);
+                iter.remove();
                 player.sendActionBar(Component.empty());
                 continue;
             }
