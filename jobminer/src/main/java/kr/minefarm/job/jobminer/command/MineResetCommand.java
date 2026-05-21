@@ -1,5 +1,6 @@
 package kr.minefarm.job.jobminer.command;
 
+import kr.minefarm.job.jobminer.message.MinerMessages;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.mining.RegenRestoreService;
