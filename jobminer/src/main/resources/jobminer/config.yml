@@ -32,6 +32,11 @@ dynamite:
   unlock-level: 30                      # 30레벨부터 해금
   fuse-ticks: 50                        # 2.5초 (20틱=1초)
   cooldown-ticks: 100                   # 5초
+  # 폭발 반경 (블록). blockList()에 의존하지 않고 직접 스캔하므로
+  # WorldGuard나 다른 보호 플러그인이 폭발 블록 데미지를 차단해도 광물 보상은 정상 지급됨.
+  explosion-radius: 4
+  # 폭발 시 플레이어/엔티티 데미지·넉백 제거 (true 권장 — 발 밑 폭발로 솟구치지 않음)
+  disable-knockback: true
   # SKILL 스탯 1레벨당 cooldown 감소 (예: 0.02 = 2%/레벨)
   cooldown-reduction-per-skill: 0.02
   cooldown-reduction-cap: 0.5           # 최대 감소율 (50%)

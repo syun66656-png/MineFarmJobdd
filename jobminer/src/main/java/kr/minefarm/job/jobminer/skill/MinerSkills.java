@@ -16,6 +16,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -25,6 +26,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -38,7 +40,6 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -155,7 +156,12 @@ public final class MinerSkills implements Listener {
         return reduction;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    /**
+     * 다이너마이트 TNT 폭발 처리.
+     * 다른 플러그인이 EntityExplodeEvent를 cancel 하거나 blockList를 비워도 동작하도록
+     * MONITOR priority + ignoreCancelled=false + 직접 스캔 방식 사용.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onExplode(EntityExplodeEvent event) {
         if (!(event.getEntity() instanceof TNTPrimed tnt)) {
             return;
@@ -164,35 +170,43 @@ public final class MinerSkills implements Listener {
             return;
         }
 
+        // 폭발의 지형 파괴는 완전 차단 (리젠 블록만 보상으로 처리)
+        event.blockList().clear();
+        event.setCancelled(false); // 폭발 이벤트 자체는 통과 — 시각 효과를 위해
+
         Player player = resolveDynamiteOwner(tnt);
         PlayerJobProfile profile = player != null
                 ? core.getPlayerProfiles().getCached(player.getUniqueId())
                 : null;
-
-        List<Block> regenOres = new ArrayList<>();
-        Iterator<Block> iterator = event.blockList().iterator();
-        while (iterator.hasNext()) {
-            Block block = iterator.next();
-            iterator.remove();
-
-            if (!regenBlockRegistry.isRegenBlock(block)) {
-                continue;
-            }
-            // ★ 리전 밖 블록은 폭발 보상 대상 아님
-            if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) {
-                continue;
-            }
-            if (!MineOreMaterials.isOre(block.getType())) {
-                continue;
-            }
-            regenOres.add(block);
-        }
-
-        if (regenOres.isEmpty()) {
+        if (player == null || profile == null || profile.getJobId() != JobId.MINER) {
             return;
         }
 
-        if (player == null || profile == null || profile.getJobId() != JobId.MINER) {
+        // ★ blockList 의존 없이 폭발 위치 주변을 직접 스캔
+        Location center = event.getLocation();
+        World world = center.getWorld();
+        if (world == null) return;
+        int radius = Math.max(1, config.getDynamiteExplosionRadius());
+        int r2 = radius * radius;
+
+        List<Block> regenOres = new ArrayList<>();
+        int cx = center.getBlockX();
+        int cy = center.getBlockY();
+        int cz = center.getBlockZ();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (dx * dx + dy * dy + dz * dz > r2) continue;
+                    Block block = world.getBlockAt(cx + dx, cy + dy, cz + dz);
+                    if (!regenBlockRegistry.isRegenBlock(block)) continue;
+                    if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) continue;
+                    if (!MineOreMaterials.isOre(block.getType())) continue;
+                    regenOres.add(block);
+                }
+            }
+        }
+
+        if (regenOres.isEmpty()) {
             return;
         }
 
@@ -214,6 +228,19 @@ public final class MinerSkills implements Listener {
                 rewardService.deliverRewards(finalPlayer, finalProfile, block, entry);
             }
         });
+    }
+
+    /**
+     * 다이너마이트로 인한 데미지/넉백 제거.
+     * config.dynamite.disable-knockback=true 일 때 EntityDamageByEntityEvent 를 cancel.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onDynamiteDamage(EntityDamageByEntityEvent event) {
+        if (!config.isDynamiteDisableKnockback()) return;
+        if (!(event.getDamager() instanceof TNTPrimed tnt)) return;
+        if (!tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) return;
+        // 데미지 + 넉백 모두 제거 (cancel 하면 둘 다 안 적용됨)
+        event.setCancelled(true);
     }
 
     @EventHandler
