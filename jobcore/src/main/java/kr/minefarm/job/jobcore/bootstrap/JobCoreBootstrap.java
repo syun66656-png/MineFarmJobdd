@@ -14,6 +14,7 @@ import kr.minefarm.job.jobcore.command.JobCommand;
 import kr.minefarm.job.jobcore.api.PaperCommandRegistration;
 import kr.minefarm.job.jobcore.command.StatCommand;
 import kr.minefarm.job.jobcore.command.admin.JobAdminCommand;
+import kr.minefarm.job.jobcore.command.admin.JobDataAdminCommand;
 import kr.minefarm.job.jobcore.config.GuiConfig;
 import kr.minefarm.job.jobcore.config.MessageConfig;
 import kr.minefarm.job.jobcore.gui.GuiManager;
@@ -287,6 +288,11 @@ public final class JobCoreBootstrap {
                 adminCommands, null, "minefarmjob.admin");
         registerAndTrack("직업리로드", "JobCore·직업 모듈 설정 리로드",
                 adminCommands, adminCommands, "minefarmjob.admin");
+
+        JobDataAdminCommand dataAdminCmd = new JobDataAdminCommand(plugin, profileService, messageConfig);
+        registerAndTrack("직업관리", "관리자: 레벨/경험치/스탯포인트/스탯 직접 조작",
+                dataAdminCmd, dataAdminCmd, "minefarmjob.admin");
+
         registerAndTrack("스탯", "스탯 포인트 투자 및 광부 자동판매 토글",
                 new StatCommand(jobGuiService, messageConfig), null, null);
 
