@@ -2,7 +2,6 @@ package kr.minefarm.job.jobcore.service;
 
 import kr.minefarm.job.jobcore.config.JobCoreConfig;
 import kr.minefarm.job.jobcore.domain.JobId;
-import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
 import kr.minefarm.job.jobcore.domain.StatType;
 import kr.minefarm.job.jobcore.registry.JobRegistry;
 import org.bukkit.entity.Player;

@@ -2,7 +2,6 @@ package kr.minefarm.job.jobcore.service;
 
 import kr.minefarm.job.jobcore.config.JobCoreConfig;
 import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
-import kr.minefarm.job.jobcore.domain.JobId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

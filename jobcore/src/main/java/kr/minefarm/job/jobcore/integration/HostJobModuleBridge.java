@@ -4,7 +4,6 @@ import kr.minefarm.job.jobcore.api.Job;
 import kr.minefarm.job.jobcore.api.JobContext;
 import kr.minefarm.job.jobcore.api.JobCoreAPI;
 import kr.minefarm.job.jobcore.api.JobModule;
-import kr.minefarm.job.jobcore.bootstrap.JobCoreContextImpl;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Method;
