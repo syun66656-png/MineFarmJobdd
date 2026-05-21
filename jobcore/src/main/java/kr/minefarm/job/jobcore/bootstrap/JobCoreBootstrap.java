@@ -501,6 +501,7 @@ public final class JobCoreBootstrap {
         }
 
         ModuleReloadResult result;
+        if (!modulesLoaded) {
             result = ModuleReloadResult.fail(targetId, "직업 모듈이 아직 로드되지 않았습니다.", null);
         } else {
             result = moduleLoader.reloadModule(targetId, coreApi);

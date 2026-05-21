@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 지정(100%)·특수(확률) 드롭 해석.
+ * 지정(100%) · 특수(확률) 드롭 해석.
  */
 public final class MineDropResolver {
 
@@ -20,35 +20,42 @@ public final class MineDropResolver {
         this.config = config;
     }
 
-    /** 리젠 채굴 시 지급할 커스텀 드롭 (바닐라 드롭 대체). */
+    /**
+     * 리젠 채굴 시 지급할 커스텀 드롭 전체 목록
+     * (guaranteed + special 확률 드롭).
+     */
     public List<ItemStack> resolveMiningDrops() {
         List<ItemStack> items = new ArrayList<>();
-
         for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
             if (entry.getValue() > 0) {
                 items.add(new ItemStack(entry.getKey(), entry.getValue()));
             }
         }
-
         for (JobMinerConfig.SpecialDrop special : config.getSpecialDrops()) {
             if (ThreadLocalRandom.current().nextDouble() < special.chance()) {
                 items.add(new ItemStack(special.material(), special.amount()));
             }
         }
-
         return items;
     }
 
-    /** 자동판매 가격 산정용 — 커스텀 드롭 목록 (가격표에 있는 것만 유효). */
-    /** guaranteed 드롭만 반환 (RELIC 보너스 계산용). */
+    /**
+     * guaranteed-drops 만 반환 (RELIC 보너스 드롭 계산 전용).
+     * special-drops 는 포함하지 않는다.
+     */
     public List<ItemStack> resolveGuaranteedDropsOnly() {
         List<ItemStack> items = new ArrayList<>();
         for (Map.Entry<Material, Integer> entry : config.getGuaranteedDrops().entrySet()) {
-            if (entry.getValue() > 0) items.add(new ItemStack(entry.getKey(), entry.getValue()));
+            if (entry.getValue() > 0) {
+                items.add(new ItemStack(entry.getKey(), entry.getValue()));
+            }
         }
         return items;
     }
 
+    /**
+     * 자동판매 가격 산정용 — 전체 드롭 목록 반환.
+     */
     public List<ItemStack> resolveDropsForPricing() {
         return resolveMiningDrops();
     }
