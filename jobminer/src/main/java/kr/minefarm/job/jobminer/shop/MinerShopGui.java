@@ -240,13 +240,13 @@ public final class MinerShopGui implements Listener {
     private void handleSellAll(PlayerJobProfile profile) {
         MinerShopService.BulkSellResult result = shopService.sellAllByGui(player, profile);
         if (!config.isShopNotifyOnSell()) return;
-        if (result.count() == 0) {
+        if (result.materialCount() == 0) {
             player.sendMessage(config.getShopNoItemsMessage().replace('&', '§'));
             return;
         }
         player.sendMessage(config.getShopSellAllMessage()
-                .replace("{count}", String.valueOf(result.count()))
-                .replace("{total}", fmtNum(result.totalEarning()))
+                .replace("{count}", String.valueOf(result.materialCount()))
+                .replace("{total}", fmtNum(result.totalGold()))
                 .replace('&', '§'));
     }
 
