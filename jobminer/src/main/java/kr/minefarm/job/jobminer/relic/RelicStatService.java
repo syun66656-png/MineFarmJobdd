@@ -49,7 +49,7 @@ public final class RelicStatService {
         double multiplier = Math.max(1.0, getBonusDropMultiplier());
         List<ItemStack> bonus = new ArrayList<>();
         for (ItemStack stack : guaranteedDrops) {
-            if (stack == null || stack.getType().isAir()) continue;
+            if (stack == null || stack.getType() == null || stack.getType().name().endsWith("AIR")) continue;
             int bonusAmount = (int) Math.max(1, Math.round(stack.getAmount() * multiplier));
             ItemStack bonusStack = stack.clone();
             bonusStack.setAmount(bonusAmount);
