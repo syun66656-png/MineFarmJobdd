@@ -20,6 +20,7 @@ import org.bukkit.World;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -29,6 +30,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -42,6 +44,7 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -68,6 +71,8 @@ public final class MinerSkills implements Listener {
     private final Map<UUID, Long> overclockActiveUntilMs = new ConcurrentHashMap<>();
     private final Map<UUID, Long> overclockCooldownUntilMs = new ConcurrentHashMap<>();
     private final Map<UUID, Long> dynamiteCooldownUntilMs = new ConcurrentHashMap<>();
+    /** 현재 살아있는 다이너마이트 TNT entity UUID — 종료/오류 시 cleanup용 */
+    private final Set<UUID> activeDynamites = ConcurrentHashMap.newKeySet();
     private BukkitTask overclockUiTask;
 
     public MinerSkills(
@@ -103,6 +108,10 @@ public final class MinerSkills implements Listener {
         player.sendActionBar(Component.empty());
     }
 
+    /**
+     * 플러그인 비활성/리로드/서버 종료 시 호출.
+     * 살아있는 다이너마이트 TNT 모두 안전하게 제거 + 잔여 스캔.
+     */
     public void shutdown() {
         if (overclockUiTask != null) {
             overclockUiTask.cancel();
@@ -110,6 +119,46 @@ public final class MinerSkills implements Listener {
         }
         overclockActiveUntilMs.clear();
         overclockCooldownUntilMs.clear();
+        dynamiteCooldownUntilMs.clear();
+
+        // ① 추적 중인 활성 TNT — 빠른 경로
+        for (UUID id : activeDynamites) {
+            Entity entity = plugin.getServer().getEntity(id);
+            if (entity != null && !entity.isDead()) {
+                entity.remove();
+            }
+        }
+        activeDynamites.clear();
+
+        // ② 안전망 — 모든 로드된 월드에서 우리 PDC 가진 TNT 잔여 제거
+        //    (이전 서버 비정상 종료로 디스크에서 다시 로드된 케이스 대응)
+        try {
+            for (var world : plugin.getServer().getWorlds()) {
+                for (Entity entity : world.getEntities()) {
+                    if (entity instanceof TNTPrimed tnt
+                            && tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) {
+                        tnt.remove();
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // shutdown 중 월드 접근 실패는 무시 (서버 상태에 따라 다름)
+        }
+    }
+
+    /**
+     * 청크 로드 시 우리 다이너마이트 PDC 가진 TNT 가 디스크에서 다시 로드되면 즉시 제거.
+     * (서버 비정상 종료된 케이스 → fuse 정보가 손상되어 의도치 않은 위치에서 폭발할 수 있음)
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkLoad(ChunkLoadEvent event) {
+        for (Entity entity : event.getChunk().getEntities()) {
+            if (entity instanceof TNTPrimed tnt
+                    && tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) {
+                tnt.remove();
+                activeDynamites.remove(tnt.getUniqueId());
+            }
+        }
     }
 
     /**
@@ -165,6 +214,9 @@ public final class MinerSkills implements Listener {
     public void onExplode(EntityExplodeEvent event) {
         if (!(event.getEntity() instanceof TNTPrimed tnt)) return;
         if (!tnt.getPersistentDataContainer().has(dynamiteKey, PersistentDataType.BYTE)) return;
+
+        // 추적에서 제거 (이미 폭발했으므로)
+        activeDynamites.remove(tnt.getUniqueId());
 
         // 진짜 폭발 효과는 모두 차단 (시각/사운드는 TNT 엔티티가 알아서 표시)
         event.blockList().clear();
@@ -256,17 +308,19 @@ public final class MinerSkills implements Listener {
         }
 
         event.setCancelled(true);
-        spawnLoc.getWorld().spawn(spawnLoc, TNTPrimed.class, primed -> {
-            primed.setFuseTicks(config.getDynamiteFuseTicks());
-            primed.setSource(player);
-            primed.getPersistentDataContainer().set(dynamiteKey, PersistentDataType.BYTE, (byte) 1);
-            primed.getPersistentDataContainer().set(dynamiteOwnerKey, PersistentDataType.STRING, player.getUniqueId().toString());
-            // 제자리에 그대로 — velocity 0
-            primed.setVelocity(new Vector(0, 0, 0));
+        TNTPrimed primed = spawnLoc.getWorld().spawn(spawnLoc, TNTPrimed.class, t -> {
+            t.setFuseTicks(config.getDynamiteFuseTicks());
+            t.setSource(player);
+            t.getPersistentDataContainer().set(dynamiteKey, PersistentDataType.BYTE, (byte) 1);
+            t.getPersistentDataContainer().set(dynamiteOwnerKey, PersistentDataType.STRING, player.getUniqueId().toString());
+            // 제자리에 그대로 — velocity 0 (시각 효과 = 깜빡임/fuse 모션은 TNT 엔티티 기본 동작)
+            t.setVelocity(new Vector(0, 0, 0));
             // '가짜 TNT' — 진짜 폭발 효과 무력화 (시각/사운드만 유지)
-            primed.setYield(0.0f);          // 폭발 반경 0 → 블록/엔티티 데미지 없음
-            primed.setIsIncendiary(false);  // 불 안 붙음
+            t.setYield(0.0f);          // 폭발 반경 0 → 데미지/블록파괴 없음
+            t.setIsIncendiary(false);  // 불 안 붙음
         });
+        // 활성 TNT 추적 — shutdown/오류 시 안전 cleanup
+        activeDynamites.add(primed.getUniqueId());
 
         // SKILL 스탯으로 쿨다운 감소
         int skillLevel = profile.getStatLevel(StatType.SKILL);
