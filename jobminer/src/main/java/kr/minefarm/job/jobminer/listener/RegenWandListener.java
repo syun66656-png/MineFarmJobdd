@@ -4,6 +4,7 @@ import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.config.JobMinerConfig;
 import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
+import kr.minefarm.job.jobminer.message.MinerMessages;
 import kr.minefarm.job.jobminer.tool.RegenWandService;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -24,17 +25,20 @@ public final class RegenWandListener implements Listener {
     private final RegenBlockRegistry regenBlockRegistry;
     private final JobMinerConfig config;
     private final WorldGuardBridge worldGuard;
+    private final MinerMessages messages;
 
     public RegenWandListener(
             RegenWandService wandService,
             RegenBlockRegistry regenBlockRegistry,
             JobMinerConfig config,
-            WorldGuardBridge worldGuard
+            WorldGuardBridge worldGuard,
+            MinerMessages messages
     ) {
         this.wandService = wandService;
         this.regenBlockRegistry = regenBlockRegistry;
         this.config = config;
         this.worldGuard = worldGuard;
+        this.messages = messages;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -62,29 +66,33 @@ public final class RegenWandListener implements Listener {
 
         // ★ WorldGuard 리전 검사 — allowed-regions가 설정되어 있으면 그 안에서만 등록 가능
         if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) {
-            player.sendMessage("§c[광산] §f이 위치는 광산 지역(WorldGuard)이 아니므로 등록/해제할 수 없습니다.");
+            player.sendMessage(messages.format("wand-not-in-region"));
             return;
         }
 
         if (action == Action.LEFT_CLICK_BLOCK) {
             if (regenBlockRegistry.isRegenBlock(block)) {
                 RegenBlockEntry entry = regenBlockRegistry.register(block);
-                player.sendMessage("§e[광산] §f리젠 블록 정보를 갱신했습니다. §7("
-                        + entry.getMaterial().name() + " @ "
-                        + entry.getX() + ", " + entry.getY() + ", " + entry.getZ() + ")");
+                player.sendMessage(messages.format("wand-updated", java.util.Map.of(
+                        "material", entry.getMaterial().name(),
+                        "x", String.valueOf(entry.getX()),
+                        "y", String.valueOf(entry.getY()),
+                        "z", String.valueOf(entry.getZ()))));
             } else {
                 RegenBlockEntry entry = regenBlockRegistry.register(block);
-                player.sendMessage("§a[광산] §f리젠 블록을 등록했습니다. §7("
-                        + entry.getMaterial().name() + " @ "
-                        + entry.getX() + ", " + entry.getY() + ", " + entry.getZ() + ")");
+                player.sendMessage(messages.format("wand-registered", java.util.Map.of(
+                        "material", entry.getMaterial().name(),
+                        "x", String.valueOf(entry.getX()),
+                        "y", String.valueOf(entry.getY()),
+                        "z", String.valueOf(entry.getZ()))));
             }
             return;
         }
 
         if (regenBlockRegistry.unregister(block)) {
-            player.sendMessage("§c[광산] §f리젠 블록 등록을 해제했습니다.");
+            player.sendMessage(messages.format("wand-unregistered"));
         } else {
-            player.sendMessage("§7[광산] §f등록되지 않은 블록입니다.");
+            player.sendMessage(messages.format("wand-not-found"));
         }
     }
 }

@@ -5,6 +5,7 @@ import kr.minefarm.job.jobcore.api.JobCoreAPI;
 import kr.minefarm.job.jobcore.domain.JobId;
 import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
 import kr.minefarm.job.jobminer.kit.StarterKitService;
+import kr.minefarm.job.jobminer.message.MinerMessages;
 import kr.minefarm.job.jobminer.passive.MinerPassiveEffectsService;
 import kr.minefarm.job.jobminer.skill.MinerSkills;
 import org.bukkit.entity.Player;
@@ -21,6 +22,7 @@ public final class MinerJob implements Job {
     private StarterKitService starterKit;
     private MinerPassiveEffectsService passiveEffects;
     private MinerSkills minerSkills;
+    private MinerMessages messages;
 
     /**
      * {@link JobMinerModule#onEnable} 에서 서비스를 연결한다.
@@ -29,12 +31,14 @@ public final class MinerJob implements Job {
             JobCoreAPI core,
             StarterKitService starterKit,
             MinerPassiveEffectsService passiveEffects,
-            MinerSkills minerSkills
+            MinerSkills minerSkills,
+            MinerMessages messages
     ) {
         this.core = core;
         this.starterKit = starterKit;
         this.passiveEffects = passiveEffects;
         this.minerSkills = minerSkills;
+        this.messages = messages;
     }
 
     public void unbind() {
@@ -42,6 +46,7 @@ public final class MinerJob implements Job {
         this.starterKit = null;
         this.passiveEffects = null;
         this.minerSkills = null;
+        this.messages = null;
     }
 
     @Override
@@ -56,7 +61,7 @@ public final class MinerJob implements Job {
 
     @Override
     public void onSelect(Player player) {
-        player.sendMessage("§6[직업] §f광부 직업을 선택했습니다.");
+        player.sendMessage(messages.format("miner-job-selected"));
 
         if (starterKit != null) {
             starterKit.equipStarterKit(player);

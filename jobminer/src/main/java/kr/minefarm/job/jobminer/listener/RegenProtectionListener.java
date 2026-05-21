@@ -34,6 +34,7 @@ public final class RegenProtectionListener implements Listener {
     private final PickaxeValidator pickaxeValidator;
     private final JobMinerConfig config;
     private final WorldGuardBridge worldGuard;
+    private final MinerMessages messages;
 
     /** 메시지 스팸 방지용 마지막 경고 시각 */
     private final Map<UUID, Long> lastWarnAt = new ConcurrentHashMap<>();
@@ -43,13 +44,15 @@ public final class RegenProtectionListener implements Listener {
             JobCoreAPI core,
             PickaxeValidator pickaxeValidator,
             JobMinerConfig config,
-            WorldGuardBridge worldGuard
+            WorldGuardBridge worldGuard,
+            MinerMessages messages
     ) {
         this.regenBlockRegistry = regenBlockRegistry;
         this.core = core;
         this.pickaxeValidator = pickaxeValidator;
         this.config = config;
         this.worldGuard = worldGuard;
+        this.messages = messages;
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -63,16 +66,14 @@ public final class RegenProtectionListener implements Listener {
         RegenBlockEntry entry = regenBlockRegistry.getEntry(block);
         if (entry != null && block.getType() != entry.getMaterial()) {
             event.setCancelled(true);
-            sendWarnOnce(event.getPlayer(),
-                    "§c[광산] §f광물이 복구 중입니다. 잠시 후 다시 시도하세요.");
+            sendWarnOnce(event.getPlayer(), messages.format("protection-regen-restoring"));
             return;
         }
 
         if (canMineRegenBlock(event.getPlayer())) return;
 
         event.setCancelled(true);
-        sendWarnOnce(event.getPlayer(),
-                "§c[광산] §f광부 직업과 허용된 곡괭이가 있어야 채굴할 수 있습니다.");
+        sendWarnOnce(event.getPlayer(), messages.format("protection-pickaxe-required"));
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -81,8 +82,7 @@ public final class RegenProtectionListener implements Listener {
         if (!regenBlockRegistry.isRegenBlock(block)) return;
         if (!worldGuard.isInAnyRegion(block.getLocation(), config.getMineAllowedRegions())) return;
         event.setCancelled(true);
-        sendWarnOnce(event.getPlayer(),
-                "§c[광산] §f리젠 블록 위치에는 블록을 설치할 수 없습니다.");
+        sendWarnOnce(event.getPlayer(), messages.format("protection-cannot-place"));
     }
 
     private boolean canMineRegenBlock(Player player) {

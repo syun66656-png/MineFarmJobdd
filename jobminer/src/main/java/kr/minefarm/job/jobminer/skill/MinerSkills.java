@@ -9,6 +9,7 @@ import kr.minefarm.job.jobminer.mining.MineOreMaterials;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
 import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
+import kr.minefarm.job.jobminer.message.MinerMessages;
 import kr.minefarm.job.jobminer.tool.PickaxeValidator;
 import kr.minefarm.job.jobminer.mining.RegenMineRewardService;
 import net.kyori.adventure.text.Component;
@@ -60,6 +61,7 @@ public final class MinerSkills implements Listener {
     private final RegenMineRewardService rewardService;
     private final WorldGuardBridge worldGuard;
     private final PickaxeValidator pickaxeValidator;
+    private final MinerMessages messages;
     private final NamespacedKey dynamiteKey;
     private final NamespacedKey dynamiteOwnerKey;
     private final NamespacedKey overclockHasteKey;
@@ -76,7 +78,8 @@ public final class MinerSkills implements Listener {
             RegenBlockRegistry regenBlockRegistry,
             RegenMineRewardService rewardService,
             WorldGuardBridge worldGuard,
-            PickaxeValidator pickaxeValidator
+            PickaxeValidator pickaxeValidator,
+            MinerMessages messages
     ) {
         this.plugin = plugin;
         this.config = config;
@@ -85,6 +88,7 @@ public final class MinerSkills implements Listener {
         this.rewardService = rewardService;
         this.worldGuard = worldGuard;
         this.pickaxeValidator = pickaxeValidator;
+        this.messages = messages;
         this.dynamiteKey = new NamespacedKey(plugin, "minefarm_dynamite");
         this.dynamiteOwnerKey = new NamespacedKey(plugin, "dynamite_owner");
         this.overclockHasteKey = new NamespacedKey(plugin, "miner_overclock_haste");
@@ -229,8 +233,7 @@ public final class MinerSkills implements Listener {
         // 해금 레벨 검사 (기본 30)
         int unlock = config.getDynamiteUnlockLevel();
         if (profile.getLevel() < unlock) {
-            player.sendMessage(legacyAmpersand(config.getDynamiteLevelDeniedMessage()
-                    .replace("{level}", String.valueOf(unlock))));
+            player.sendMessage(messages.format("dynamite-level-denied", java.util.Map.of("level", String.valueOf(unlock))));
             event.setCancelled(true);
             return true;
         }
@@ -240,8 +243,7 @@ public final class MinerSkills implements Listener {
         Long cdEnd = dynamiteCooldownUntilMs.get(id);
         if (cdEnd != null && now < cdEnd) {
             long remainingSec = (cdEnd - now + 999) / 1000;
-            player.sendMessage(legacyAmpersand(config.getDynamiteCooldownMessage()
-                    .replace("{seconds}", String.valueOf(remainingSec))));
+            player.sendMessage(messages.format("dynamite-cooldown", java.util.Map.of("seconds", String.valueOf(remainingSec))));
             event.setCancelled(true);
             return true;
         }
@@ -276,7 +278,7 @@ public final class MinerSkills implements Listener {
             dynamiteCooldownUntilMs.put(id, now + (long) cooldownTicks * MS_PER_TICK);
         }
 
-        player.sendMessage("§e[광산] §f다이너마이트 설치!");
+        player.sendMessage(messages.format("dynamite-thrown"));
         return true;
     }
 
@@ -291,7 +293,7 @@ public final class MinerSkills implements Listener {
         int jobLevel = profile.getLevel();
         int unlock = config.getOverclockUnlockLevel();
         if (jobLevel < unlock || jobLevel > config.getOverclockMaxJobLevel()) {
-            player.sendMessage(legacyAmpersand(config.getOverclockLevelDeniedMessage()));
+            player.sendMessage(messages.format("overclock-level-denied"));
             event.setCancelled(true);
             return true;
         }
@@ -306,7 +308,7 @@ public final class MinerSkills implements Listener {
             event.setCancelled(true);
             if (jobLevel < config.getOverclockExtensionUnlockLevel()) {
                 // 메카닉 미해금 — 그냥 쿨타임처럼 막음
-                player.sendMessage(legacyAmpersand(config.getOverclockCooldownMessage()));
+                player.sendMessage(messages.format("overclock-cooldown"));
                 return true;
             }
             tryOverclockExtension(player, profile, skillLevel, activeEnd);
@@ -316,7 +318,7 @@ public final class MinerSkills implements Listener {
         // 쿨다운 검사
         Long cdEnd = overclockCooldownUntilMs.get(id);
         if (cdEnd != null && now < cdEnd) {
-            player.sendMessage(legacyAmpersand(config.getOverclockCooldownMessage()));
+            player.sendMessage(messages.format("overclock-cooldown"));
             event.setCancelled(true);
             return true;
         }
@@ -381,9 +383,7 @@ public final class MinerSkills implements Listener {
         if (roll >= chance) {
             // 실패
             int chancePercent = (int) Math.round(chance * 100);
-            player.sendMessage(legacyAmpersand(
-                    config.getOverclockExtensionFailureMessage()
-                            .replace("{chance}", String.valueOf(chancePercent))));
+            player.sendMessage(messages.format("overclock-extension-failure", java.util.Map.of("chance", String.valueOf(chancePercent))));
             return;
         }
 
@@ -397,10 +397,9 @@ public final class MinerSkills implements Listener {
 
         int seconds = extTicks / 20;
         int chancePercent = (int) Math.round(chance * 100);
-        String msg = config.getOverclockExtensionSuccessMessage()
-                .replace("{seconds}", String.valueOf(seconds))
-                .replace("{chance}", String.valueOf(chancePercent));
-        player.sendMessage(legacyAmpersand(msg));
+        player.sendMessage(messages.format("overclock-extension-success", java.util.Map.of(
+                "seconds", String.valueOf(seconds),
+                "chance", String.valueOf(chancePercent))));
     }
 
     /**

@@ -4,6 +4,7 @@ import kr.minefarm.job.jobcore.api.JobCoreAPI;
 import kr.minefarm.job.jobcore.domain.PlayerJobProfile;
 import kr.minefarm.job.jobcore.domain.StatType;
 import kr.minefarm.job.jobminer.config.JobMinerConfig;
+import kr.minefarm.job.jobminer.message.MinerMessages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
@@ -41,6 +42,7 @@ public final class MinerShopGui implements Listener {
     private final JobCoreAPI core;
     private final JobMinerConfig config;
     private final MinerShopService shopService;
+    private final MinerMessages messages;
     private final Player player;
 
     private Inventory inventory;
@@ -52,12 +54,14 @@ public final class MinerShopGui implements Listener {
             JobCoreAPI core,
             JobMinerConfig config,
             MinerShopService shopService,
+            MinerMessages messages,
             Player player
     ) {
         this.plugin = plugin;
         this.core = core;
         this.config = config;
         this.shopService = shopService;
+        this.messages = messages;
         this.player = player;
     }
 
@@ -241,13 +245,12 @@ public final class MinerShopGui implements Listener {
         MinerShopService.BulkSellResult result = shopService.sellAllByGui(player, profile);
         if (!config.isShopNotifyOnSell()) return;
         if (result.materialCount() == 0) {
-            player.sendMessage(config.getShopNoItemsMessage().replace('&', '§'));
+            player.sendMessage(messages.format("shop-no-items"));
             return;
         }
-        player.sendMessage(config.getShopSellAllMessage()
-                .replace("{count}", String.valueOf(result.materialCount()))
-                .replace("{total}", fmtNum(result.totalGold()))
-                .replace('&', '§'));
+        player.sendMessage(messages.format("shop-sell-all", java.util.Map.of(
+                "count", String.valueOf(result.materialCount()),
+                "total", fmtNum(result.totalGold()))));
     }
 
     private void notifyResult(MinerShopService.SellResult result, JobMinerConfig.ShopGuiItem guiItem) {
@@ -257,17 +260,16 @@ public final class MinerShopGui implements Listener {
                     .serialize(AMP.deserialize(guiItem.display().name()))
                 : result.material().name();
         if (status == MinerShopService.SellResult.Status.SUCCESS) {
-            player.sendMessage(config.getShopSellMessage()
-                    .replace("{item}", itemName)
-                    .replace("{amount}", String.valueOf(result.amount()))
-                    .replace("{price}", fmtNum(result.price()))
-                    .replace('&', '§'));
+            player.sendMessage(messages.format("shop-sell-success", java.util.Map.of(
+                    "item", itemName,
+                    "amount", String.valueOf(result.amount()),
+                    "price", fmtNum(result.price()))));
         } else if (status == MinerShopService.SellResult.Status.NO_ITEMS) {
-            player.sendMessage("§c" + itemName + "이(가) 인벤토리에 없습니다.");
+            player.sendMessage(messages.format("shop-item-not-found", java.util.Map.of("item", itemName)));
         } else if (status == MinerShopService.SellResult.Status.VAULT_ERROR) {
-            player.sendMessage(config.getShopVaultErrorMessage().replace('&', '§'));
+            player.sendMessage(messages.format("shop-vault-error"));
         } else if (status == MinerShopService.SellResult.Status.NO_PRICE) {
-            player.sendMessage("§c해당 아이템은 판매할 수 없습니다.");
+            player.sendMessage(messages.format("shop-no-price"));
         }
     }
 }

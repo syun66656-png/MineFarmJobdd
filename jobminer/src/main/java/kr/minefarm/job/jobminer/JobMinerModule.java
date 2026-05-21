@@ -16,6 +16,7 @@ import kr.minefarm.job.jobminer.listener.RegenProtectionListener;
 import kr.minefarm.job.jobminer.listener.RegenWandListener;
 import kr.minefarm.job.jobminer.listener.MinerWorldChangeListener;
 import kr.minefarm.job.jobminer.integration.WorldGuardBridge;
+import kr.minefarm.job.jobminer.message.MinerMessages;
 import kr.minefarm.job.jobminer.mining.MineDropResolver;
 import kr.minefarm.job.jobminer.mining.RegenBlockEntry;
 import kr.minefarm.job.jobminer.mining.RegenBlockRegistry;
@@ -50,6 +51,7 @@ public final class JobMinerModule implements JobModule {
     private MinerJob minerJob;
 
     private JobMinerConfig minerConfig;
+    private MinerMessages minerMessages;
     private RegenBlockRegistry regenBlockRegistry;
     private RegenBlockStorage regenBlockStorage;
     private RegenRestoreService regenRestoreService;
@@ -82,6 +84,7 @@ public final class JobMinerModule implements JobModule {
         this.hostPlugin = plugin;
         plugin.saveResource("jobminer/config.yml", false);
         minerConfig = new JobMinerConfig(plugin);
+        minerMessages = new MinerMessages(plugin);
 
         StarterKitService starterKitService = new StarterKitService(minerConfig, plugin.getLogger());
         WorldGuardBridge worldGuard = new WorldGuardBridge(plugin.getLogger());
@@ -124,9 +127,10 @@ public final class JobMinerModule implements JobModule {
                 regenBlockRegistry,
                 regenMineRewardService,
                 worldGuard,
-                pickaxeValidator
+                pickaxeValidator,
+                minerMessages
         );
-        minerJob.bind(context.getCore(), starterKitService, passiveEffectsService, minerSkills);
+        minerJob.bind(context.getCore(, minerMessages), starterKitService, passiveEffectsService, minerSkills);
 
         context.registerListener(new MiningListener(
                 context.getCore(),
@@ -142,21 +146,22 @@ public final class JobMinerModule implements JobModule {
                 context.getCore(),
                 pickaxeValidator,
                 minerConfig,
-                worldGuard
+                worldGuard,
+                minerMessages
         ));
-        context.registerListener(new RegenWandListener(regenWandService, regenBlockRegistry, minerConfig, worldGuard));
+        context.registerListener(new RegenWandListener(regenWandService, regenBlockRegistry, minerConfig, worldGuard, minerMessages));
         context.registerListener(new MinerWorldChangeListener(context.getCore(), passiveEffectsService));
 
         registerCommand(plugin, "광산완드", "리젠 블록 관리 완드 지급",
-                new RegenWandCommand(regenWandService), null, "minefarmjob.admin");
-        MineResetCommand resetCommand = new MineResetCommand(regenBlockRegistry, regenRestoreService);
+                new RegenWandCommand(regenWandService, minerMessages), null, "minefarmjob.admin");
+        MineResetCommand resetCommand = new MineResetCommand(regenBlockRegistry, regenRestoreService, minerMessages);
         registerCommand(plugin, "광산초기화", "리젠 블록 즉시 복구",
                 resetCommand, resetCommand, "minefarmjob.admin");
 
         // 광부 상점
         MinerShopService shopService = new MinerShopService(minerConfig, sellCalculator, vaultEconomy);
         registerCommand(plugin, "광부상점", "광부 전용 판매 상점 GUI",
-                new MinerShopCommand(plugin, context.getCore(), minerConfig, shopService),
+                new MinerShopCommand(plugin, context.getCore(), minerConfig, shopService, minerMessages),
                 null, null);
 
         plugin.getLogger().info("JobMiner module ready (regen tools, " + regenBlockRegistry.size() + " blocks loaded).");
